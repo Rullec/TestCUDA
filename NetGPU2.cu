@@ -51,64 +51,40 @@ __device__ void DiagMatmul_with_softplus_z(const float *z, float *cur_multi_buf,
         }
     }
 }
-
-__global__ void NetworkForward_energy_grad(
-    int n_ele, devPtr<const tCudaVector1f> x_arr, int input_dim, int output_dim,
+template <int num>
+__device__ void NetworkForward_energy_grad(
+    int tid, const tCudaMatrix<float, num, 1> &x_cur_, int output_dim,
     size_t num_mid_layers, devPtr<const uint> layer_arr,
     devPtr<float *const> mWLst_cublas_dev,
     devPtr<float *const> mbLst_cublas_dev, devPtr<const float> input_mean,
     devPtr<const float> input_std, float output_mean, float output_std,
-
-    // buffer
-    devPtr<float> comp_buf_energy, int num_of_buf_energy_per_T,
-    devPtr<float> cur_multi_buf_, int sizeof_cur_multi_buf,
-    devPtr<float> cur_result_buf0_, int sizeof_cur_result_buf0,
-    devPtr<float> cur_result_buf1_, int sizeof_cur_result_buf1,
     // solution
-    devPtr<float> energy_arr, devPtr<tCudaVector1f> dEdx_arr)
+    float *energy_arr, float *dEdx_arr)
 {
-    CUDA_function;
-
-    size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (tid >= n_ele)
-        return;
-
-    // devPtr<float> cur_triangle_st_comp_buf =
-    //     comp_buf_energy + num_of_buf_energy_per_T * tid;
-
-    // float *cur_multi_buf = cur_multi_buf_ + tid * sizeof_cur_multi_buf;
-    // float *cur_result_buf0 = cur_result_buf0_ + tid * sizeof_cur_result_buf0;
-    // float *cur_result_buf1 = cur_result_buf1_ + tid * sizeof_cur_result_buf1;
-    float cur_triangle_st_comp_buf[100];
-    float cur_multi_buf[1100];
-    float cur_result_buf0[1100];
-    float cur_result_buf1[100];
-
-    // __shared__ float network_param_weight[10000];
-    // __shared__ float network_param_bias[10000];
-
-    // while ()
-    // {
-    //     network_param[tid] = mWLst_cublas_dev[tid];
-    //     tid +=
-    // }
-    // __syncthreads
+    constexpr int num_of_buf_energy_per_T = 100;
+    constexpr int sizeof_cur_multi_buf = 1100;
+    constexpr int sizeof_cur_result_buf0 = 1100;
+    constexpr int sizeof_cur_result_buf1 = 100;
+    float cur_triangle_st_comp_buf[num_of_buf_energy_per_T];
+    float cur_multi_buf[sizeof_cur_multi_buf];
+    float cur_result_buf0[sizeof_cur_result_buf0];
+    float cur_result_buf1[sizeof_cur_result_buf1];
 
     int cur_comp_buf_offset = 0;
 
-    constexpr int num = 1;
     using tVecType = tCudaMatrix<float, num, 1>;
-    tVecType x_cur = x_arr[tid];
+    tVecType x_cur = x_cur_;
     Normalize<num>(x_cur, input_mean, input_std);
 
     // if (tid == 0)
     {
         // printf("-------------- CUDA kernel begin ------------\n");
-        // mInputMeanGPU[0];
-        // printf("t %ld, x(after normalized) = %.3f\n", tid, x_cur[0]);
+        // // mInputMeanGPU[0];
+        // printf("t %ld, x(after normalized) = ", tid);
+        // PrintCublasVec(num, x_cur.mData);
         // 1. show input mean, std
 
-        // // printf("input mean %.3f std %.3f\n", mInputMeanGPU[0],
+        // printf("input mean %.3f std %.3f\n", mInputMeanGPU[0],
         // mInputStdGPU[0]);
         // printf("num layers = %ld, layer = ", num_mid_layers);
         // for (size_t i = 0; i < num_mid_layers; i++)
@@ -121,9 +97,17 @@ __global__ void NetworkForward_energy_grad(
         for (size_t layer_id = 0; layer_id < total_layers; layer_id++)
         {
             int w_rows, w_cols, b_size;
-            GetWbShape(layer_arr, num_mid_layers, input_dim, output_dim,
-                       layer_id, w_rows, w_cols, b_size);
+            GetWbShape(layer_arr, num_mid_layers, num, output_dim, layer_id,
+                       w_rows, w_cols, b_size);
 
+            // if (layer_id == 0)
+            // {
+            //     printf("w = \n");
+            //     PrintCublasMat(w_rows, w_cols, mWLst_cublas_dev[layer_id]);
+
+            //     printf("b = \n");
+            //     PrintCublasVec(w_rows, mbLst_cublas_dev[layer_id]);
+            // }
             // printf("(%d,%d), %d\n", w_rows, w_cols, b_size);
             // if (layer_id == 2)
             // {
@@ -141,7 +125,7 @@ __global__ void NetworkForward_energy_grad(
             BLAS_Ax_plus_b(mWLst_cublas_dev[layer_id], w_rows, w_cols,
                            mbLst_cublas_dev[layer_id], x_input,
                            cur_triangle_st_comp_buf + cur_comp_buf_offset, 0);
-            // printf("layer %ld z = ", layer_id);
+            // printf("layer %ld z(before act) = ", layer_id);
             // PrintCublasVec(w_rows,
             //                cur_triangle_st_comp_buf + cur_comp_buf_offset);
             // calculate for gradient
@@ -202,7 +186,7 @@ __global__ void NetworkForward_energy_grad(
                 // PrintCublasVec(w_cols, cur_triangle_st_comp_buf +
                 //                            cur_comp_buf_offset - prev_rows);
 
-                // printf("layer %ld z = ", layer_id);
+                // printf("layer %ld z(after act) = ", layer_id);
                 // PrintCublasVec(w_rows,
                 //                cur_triangle_st_comp_buf +
                 //                cur_comp_buf_offset);
@@ -220,20 +204,107 @@ __global__ void NetworkForward_energy_grad(
 
         // 2. print W and b matrix
 
-        energy_arr[tid] =
+        energy_arr[0] =
             (cur_triangle_st_comp_buf + cur_comp_buf_offset - prev_rows)[0] *
                 output_std +
             output_mean;
 
-        for (int i = 0; i < input_dim; i++)
+        for (int i = 0; i < num; i++)
         {
             // printf("[normed] %ld, output std %.3f input std %.3f\n", i,
             //        output_std, input_std[i]);
-            dEdx_arr[tid][i] = cur_result_buf0[i] * output_std / input_std[i];
+            dEdx_arr[i] = cur_result_buf0[i] * output_std / input_std[i];
             // printf("[gpu] dEdx for t%ld = %.3f\n", tid, dEdx_arr[tid][i]);
         }
         // printf("energy %ld = %.3f\n", tid, energy_arr[tid]);
     }
+}
+
+template <int num>
+__global__ void NetworkForward_energy_grad_global(
+    int n_ele, devPtr<const const tCudaMatrix<float, num, 1>> x_arr,
+    int output_dim, size_t num_mid_layers, devPtr<const uint> layer_arr,
+    devPtr<float *const> mWLst_cublas_dev,
+    devPtr<float *const> mbLst_cublas_dev, devPtr<const float> input_mean,
+    devPtr<const float> input_std, float output_mean, float output_std,
+    // solution
+    devPtr<float> energy_arr, devPtr<tCudaMatrix<float, num, 1>> dEdx_arr)
+{
+
+    CUDA_function;
+
+    size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (tid >= n_ele)
+        return;
+    float E = 0;
+    float dEdx[num];
+    const tCudaMatrix<float, num, 1> x_cur = x_arr[tid];
+    NetworkForward_energy_grad<num>(tid, x_cur, output_dim, num_mid_layers,
+                                    layer_arr, mWLst_cublas_dev,
+                                    mbLst_cublas_dev, input_mean, input_std,
+                                    output_mean, output_std, &E, dEdx);
+    energy_arr[tid] = E;
+    for (int i = 0; i < num; i++)
+    {
+        dEdx_arr[tid][i] = dEdx[i];
+    }
+}
+template <int num>
+__global__ void NetworkForward_energy_grad_hess_global(
+    int n_ele, devPtr<const const tCudaMatrix<float, num, 1>> x_arr,
+    int output_dim, size_t num_mid_layers, devPtr<const uint> layer_arr,
+    devPtr<float *const> mWLst_cublas_dev,
+    devPtr<float *const> mbLst_cublas_dev, devPtr<const float> input_mean,
+    devPtr<const float> input_std, float output_mean, float output_std,
+    // solution
+    devPtr<float> energy_arr, devPtr<tCudaMatrix<float, num, 1>> dEdx_arr,
+    devPtr<tCudaMatrix<float, num, num>> dE2dx2_arr)
+{
+
+    CUDA_function;
+
+    size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (tid >= n_ele)
+        return;
+    float E = 0;
+    float dEdx[num];
+    tCudaMatrix<float, num, 1> x_cur = x_arr[tid];
+    NetworkForward_energy_grad<num>(tid, x_cur, output_dim, num_mid_layers,
+                                    layer_arr, mWLst_cublas_dev,
+                                    mbLst_cublas_dev, input_mean, input_std,
+                                    output_mean, output_std, &E, dEdx);
+    energy_arr[tid] = E;
+    for (int i = 0; i < num; i++)
+    {
+        dEdx_arr[tid][i] = dEdx[i];
+    }
+    // calculate hessian
+    float eps = 1e-3f;
+    for (int i = 0; i < num; i++)
+    {
+        tCudaMatrix<float, num, 1> x_add = x_arr[tid];
+        x_add[i] += eps;
+        float dEdx_new[num];
+        NetworkForward_energy_grad<num>(tid, x_add, output_dim, num_mid_layers,
+                                        layer_arr, mWLst_cublas_dev,
+                                        mbLst_cublas_dev, input_mean, input_std,
+                                        output_mean, output_std, &E, dEdx_new);
+        for (int j = 0; j < num; j++)
+        {
+            // (j, i)
+            dE2dx2_arr[tid](j, i) = (dEdx_new[j] - dEdx[j]) / eps;
+            printf("[kernel] hess(%d %d) = %.2f\n", i, j, dE2dx2_arr[tid](j, i));
+        }
+    }
+
+    for (int i = 0; i < num; i++)
+        for (int j = i + 1; j < num; j++)
+        {
+            float mean = (dE2dx2_arr[tid](i, j) + dE2dx2_arr[tid](j, i)) / 2;
+
+            dE2dx2_arr[tid](i, j) = mean;
+            dE2dx2_arr[tid](j, i) = mean;
+        }
 }
 
 #include "NetGPU.h"
@@ -241,30 +312,117 @@ void NetGPU::forward_func_1d_energy_grad(const cCudaArray<tCudaVector1f> &x_arr,
                                          cCudaArray<float> &E_arr,
                                          cCudaArray<tCudaVector1f> &dEdx_arr)
 {
-    // cudaDeviceProp prop;
-    // int count;
-
-    // cudaGetDeviceCount(&count);
-
-    // for (int i = 0; i < count; i++)
-    // {
-    //     cudaGetDeviceProperties(&prop, i);
-    //     printf("Device Number: %d\n", i);
-    //     printf("  Shared memory per block: %zu bytes\n",
-    //            prop.sharedMemPerBlock);
-    // }
-    // exit(1);
-
     int N = x_arr.Size();
-    NetworkForward_energy_grad CUDA_at(N, 128)(
-        N, x_arr.Ptr(), 1, 1, this->mLayersGPU.Size(), mLayersGPU.Ptr(),
+    // NetworkForward_energy_grad_shared_mem CUDA_at(N, 128)(
+    NetworkForward_energy_grad_global<1> CUDA_at(N, 128)(
+        N, x_arr.Ptr(), 1, this->mLayersGPU.Size(), mLayersGPU.Ptr(),
         mWLst_cublas_dev.Ptr(), mbLst_cublas_dev.Ptr(), mInputMeanGPU.Ptr(),
         mInputStdGPU.Ptr(), mOutputMean, mOutputStd,
-        // ============== buffer ================
-        mCompBufGPU_for_energy.Ptr(), TRIANGLE_COMP_BUF_SIZE,
-        mCompBufGPU_for_grad[0].Ptr(), TRIANGLE_COMP_BUF_SIZE_FOR_GRAD[0],
-        mCompBufGPU_for_grad[1].Ptr(), TRIANGLE_COMP_BUF_SIZE_FOR_GRAD[1],
-        mCompBufGPU_for_grad[2].Ptr(), TRIANGLE_COMP_BUF_SIZE_FOR_GRAD[2],
+
         // ============== solution ================
         E_arr.Ptr(), dEdx_arr.Ptr());
 }
+
+void NetGPU::forward_func_2d_energy_grad(const cCudaArray<tCudaVector2f> &x_arr,
+                                         cCudaArray<float> &E_arr,
+                                         cCudaArray<tCudaVector2f> &dEdx_arr)
+{
+    int N = x_arr.Size();
+    // NetworkForward_energy_grad_shared_mem CUDA_at(N, 128)(
+    NetworkForward_energy_grad_global<2> CUDA_at(N, 128)(
+        N, x_arr.Ptr(), 1, this->mLayersGPU.Size(), mLayersGPU.Ptr(),
+        mWLst_cublas_dev.Ptr(), mbLst_cublas_dev.Ptr(), mInputMeanGPU.Ptr(),
+        mInputStdGPU.Ptr(), mOutputMean, mOutputStd,
+
+        // ============== solution ================
+        E_arr.Ptr(), dEdx_arr.Ptr());
+}
+
+void NetGPU::forward_func_1d_energy_grad_hess(
+    const cCudaArray<tCudaVector1f> &x_arr, cCudaArray<float> &E_arr,
+    cCudaArray<tCudaVector1f> &dEdx_arr, cCudaArray<tCudaMatrix1f> &dE2dx2_arr)
+{
+    int N = x_arr.Size();
+    // NetworkForward_energy_grad_shared_mem CUDA_at(N, 128)(
+    NetworkForward_energy_grad_hess_global<1> CUDA_at(N, 128)(
+        N, x_arr.Ptr(), 1, this->mLayersGPU.Size(), mLayersGPU.Ptr(),
+        mWLst_cublas_dev.Ptr(), mbLst_cublas_dev.Ptr(), mInputMeanGPU.Ptr(),
+        mInputStdGPU.Ptr(), mOutputMean, mOutputStd,
+
+        // ============== solution ================
+        E_arr.Ptr(), dEdx_arr.Ptr(), dE2dx2_arr.Ptr());
+}
+void NetGPU::forward_func_2d_energy_grad_hess(
+    const cCudaArray<tCudaVector2f> &x_arr, cCudaArray<float> &E_arr,
+    cCudaArray<tCudaVector2f> &dEdx_arr, cCudaArray<tCudaMatrix2f> &dE2dx2_arr)
+{
+
+    int N = x_arr.Size();
+    // NetworkForward_energy_grad_shared_mem CUDA_at(N, 128)(
+    NetworkForward_energy_grad_hess_global<2> CUDA_at(N, 128)(
+        N, x_arr.Ptr(), 1, this->mLayersGPU.Size(), mLayersGPU.Ptr(),
+        mWLst_cublas_dev.Ptr(), mbLst_cublas_dev.Ptr(), mInputMeanGPU.Ptr(),
+        mInputStdGPU.Ptr(), mOutputMean, mOutputStd,
+
+        // ============== solution ================
+        E_arr.Ptr(), dEdx_arr.Ptr(), dE2dx2_arr.Ptr());
+}
+// __global__ void NetworkForward_energy_grad_shared_mem(
+//     int n_ele, devPtr<const tCudaVector1f> x_arr, int input_dim, int
+//     output_dim, size_t num_mid_layers, devPtr<const uint> layer_arr,
+//     devPtr<float *const> mWLst_cublas_dev_,
+//     devPtr<float *const> mbLst_cublas_dev_, devPtr<const float> input_mean,
+//     devPtr<const float> input_std, float output_mean, float output_std,
+
+//     // buffer
+//     devPtr<float> comp_buf_energy, int num_of_buf_energy_per_T,
+//     devPtr<float> cur_multi_buf_, int sizeof_cur_multi_buf,
+//     devPtr<float> cur_result_buf0_, int sizeof_cur_result_buf0,
+//     devPtr<float> cur_result_buf1_, int sizeof_cur_result_buf1,
+//     // solution
+//     devPtr<float> energy_arr, devPtr<tCudaVector1f> dEdx_arr)
+// {
+//     CUDA_function;
+//     int index = threadIdx.x;
+//     int stride = blockDim.x;
+//     size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+//     // devPtr<float> cur_triangle_st_comp_buf =
+//     //     comp_buf_energy + num_of_buf_energy_per_T * tid;
+
+//     // float *cur_multi_buf = cur_multi_buf_ + tid * sizeof_cur_multi_buf;
+//     // float *cur_result_buf0 = cur_result_buf0_ + tid *
+//     sizeof_cur_result_buf0;
+//     // float *cur_result_buf1 = cur_result_buf1_ + tid *
+//     sizeof_cur_result_buf1; float cur_triangle_st_comp_buf[100]; float
+//     cur_multi_buf[1100]; float cur_result_buf0[1100]; float
+//     cur_result_buf1[100];
+
+//     __shared__ float network_param[5000];
+
+//     int total_layers = num_mid_layers + 1;
+//     int data_offset = 0;
+//     constexpr int max_layer = 10;
+//     int network_param_w_st_pos[max_layer]; // max 10 layers
+//     int network_param_b_st_pos[max_layer]; // max 10 layers
+
+//     for (size_t layer_id = 0; layer_id < total_layers; layer_id++)
+//     {
+//         int w_rows, w_cols, b_size;
+//         GetWbShape(layer_arr, num_mid_layers, input_dim, output_dim,
+//         layer_id,
+//                    w_rows, w_cols, b_size);
+//         float *w_data = mWLst_cublas_dev_[layer_id];
+//         float *b_data = mbLst_cublas_dev_[layer_id];
+
+//         // begin to copy per result
+//         network_param_w_st_pos[layer_id] = data_offset;
+//         for (int i = index; i < w_rows * w_cols; i += stride)
+//             network_param[data_offset + i] = w_data[i];
+//         data_offset += w_rows * w_cols;
+
+//         network_param_b_st_pos[layer_id] = data_offset;
+//         for (int i = index; i < b_size; i += stride)
+//             network_param[data_offset + i] = b_data[i];
+//         data_offset += b_size;
+//     }

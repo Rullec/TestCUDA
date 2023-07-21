@@ -20,6 +20,8 @@ public:
                       const tVectorX &input_mean, const _FLOAT &output_mean,
                       const tVectorX &input_std, const _FLOAT &output_std);
 
+    int GetNumOfParam() const;
+    template <typename dtype> int GetBytesOfParam() const;
     // ============== input & output are all normed ===============
     virtual _FLOAT forward_normed(const tVectorX &x);
     virtual tVectorX calc_grad_wrt_input_normed(const tVectorX &x);

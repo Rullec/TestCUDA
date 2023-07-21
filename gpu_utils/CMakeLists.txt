@@ -6,6 +6,7 @@ CudaMemory.cpp
 CudaAsync.cu  
 GPUMatrixOps.cu
 CublasUtil.cpp
+CudaUtil.cu
 )
 add_library(cuda_lib ${cuda_src})
 

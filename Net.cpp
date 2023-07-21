@@ -24,7 +24,25 @@ convert_stdvec_to_eigenvec(const std::vector<dtype> &std_vec)
 
     return x;
 }
+int Net::GetNumOfParam() const
+{
+    int num_of_param = 0;
+    for (auto &w : this->mWLst)
+        num_of_param += w.size();
+    for (auto &w : this->mbLst)
+        num_of_param += w.size();
+    return num_of_param;
+}
 
+template <typename dtype> int Net::GetBytesOfParam() const
+{
+    return sizeof(dtype) * GetNumOfParam();
+}
+
+template <> int Net::GetBytesOfParam<float>() const
+{
+    return sizeof(float) * GetNumOfParam();
+}
 tVectorX Softplus(const tVectorX &x)
 {
     tVectorX y = (1.0 + x.array().exp()).log();
@@ -161,17 +179,25 @@ _FLOAT Net::forward_normed(const tVectorX &x)
 
     assert(x.size() == mInputDim);
     tVectorX z = x; // z : M,
-    // std::cout << "input x = " << x.transpose() << std::endl;
+    // std::cout << "input x(after normed) = " << x.transpose() << std::endl;
     for (int i = 0; i < mWLst.size(); i++)
     {
         // W: M x I, b : M x 1
         z = mWLst[i] * z; // z : M x N
         z += mbLst[i];
-        // std::cout << "layer " << i << " z = " << z.transpose() << std::endl;
+        // if(i == 0)
+        // {
+        //     std::cout << "w = \n" << mWLst[i] << std::endl;
+        //     std::cout << "b = " << mbLst[i].transpose() << std::endl;
+        // }
+        // std::cout << "layer " << i << " z(before act) = " << z.transpose()
+        //           << std::endl;
         // printf("i = %d z shape %d %d\n", i, z.rows(), z.cols());
         if (mAct != nullptr && i != mWLst.size() - 1)
         {
             z = mAct(z).eval();
+            // std::cout << "layer " << i << " z(after act) = " << z.transpose()
+            //           << std::endl;
         }
     }
 

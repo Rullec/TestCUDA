@@ -158,56 +158,248 @@ void energy_verify()
 
 void energy_grad_verify()
 {
-    // test 1d
-    int test_n = 50000;
-    auto net_cpu = mNet1dLstCPU[0];
-    tEigenArr<tVectorX> batch_x = {};
-    std::vector<float> E_cpu_arr = {};
-    std::vector<tVectorX> dEdx_cpu_arr = {};
-    cTimeUtil::Begin("cpu");
-    for (int i = 0; i < test_n; i++)
+    bool test_1d = false;
+    if (test_1d)
     {
-        tVectorX x = tVectorX::Random(1);
-        batch_x.emplace_back(x);
-        float E = net_cpu->forward_unnormed(x);
-        tVectorX dEdx = net_cpu->calc_grad_wrt_input_unnormed(x);
 
-        E_cpu_arr.emplace_back(E);
-        dEdx_cpu_arr.emplace_back(dEdx);
-    }
+        // test 1d
+        int test_n = 10;
+        auto net_cpu = mNet1dLstCPU[0];
+        tEigenArr<tVectorX> batch_x = {};
+        std::vector<float> E_cpu_arr = {};
+        std::vector<tVectorX> dEdx_cpu_arr = {};
+        cTimeUtil::Begin("cpu");
+        for (int i = 0; i < test_n; i++)
+        {
+            tVectorX x = tVectorX::Random(1);
+            batch_x.emplace_back(x);
+            float E = net_cpu->forward_unnormed(x);
+            tVectorX dEdx = net_cpu->calc_grad_wrt_input_unnormed(x);
 
-    _FLOAT cpu_elasped = cTimeUtil::End("cpu");
+            E_cpu_arr.emplace_back(E);
+            dEdx_cpu_arr.emplace_back(dEdx);
+        }
 
-    auto net_gpu = mNet1dLstGPU[0];
+        _FLOAT cpu_elasped = cTimeUtil::End("cpu");
 
-    net_gpu->forward_unnormed_energy_grad_batch(batch_x);
+        auto net_gpu = mNet1dLstGPU[0];
 
-    cTimeUtil::Begin("gpu");
-    std::tuple<std::vector<float>, std::vector<tVectorXf>> ret =
         net_gpu->forward_unnormed_energy_grad_batch(batch_x);
-    _FLOAT gpu_elasped = cTimeUtil::End("gpu");
 
-    std::vector<float> E_gpu = std::get<0>(ret);
-    std::vector<tVectorXf> dEdx_gpu = std::get<1>(ret);
+        cTimeUtil::Begin("gpu");
+        std::tuple<std::vector<float>, std::vector<tVectorXf>> ret =
+            net_gpu->forward_unnormed_energy_grad_batch(batch_x);
+        _FLOAT gpu_elasped = cTimeUtil::End("gpu");
 
-    // _FLOAT E_gpu = net_gpu->forward_unnormed(x);
+        std::vector<float> E_gpu = std::get<0>(ret);
+        std::vector<tVectorXf> dEdx_gpu = std::get<1>(ret);
 
-    for (int i = 0; i < test_n; i++)
-    {
-        printf("[%d] E cpu %.2f gpu %.2f\n", i, E_cpu_arr[i], E_gpu[i]);
+        // _FLOAT E_gpu = net_gpu->forward_unnormed(x);
+
+        for (int i = 0; i < test_n; i++)
+        {
+            printf("[%d] E cpu %.2f gpu %.2f\n", i, E_cpu_arr[i], E_gpu[i]);
+        }
+        for (int i = 0; i < test_n; i++)
+        {
+            printf("[%d] dEdx cpu %.2f gpu %.2f\n", i, dEdx_cpu_arr[i][0],
+                   dEdx_gpu[i][0]);
+        }
+        printf("[1d] cpu %.2f gpu %.2f\n", cpu_elasped, gpu_elasped);
     }
-    for (int i = 0; i < test_n; i++)
+    else
     {
-        printf("[%d] dEdx cpu %.2f gpu %.2f\n", i, dEdx_cpu_arr[i][0],
-               dEdx_gpu[i][0]);
+
+        // test 2d
+        int test_n = 10;
+        auto net_cpu = mNet2dLstCPU[0];
+        tEigenArr<tVectorX> batch_x = {};
+        std::vector<float> E_cpu_arr = {};
+        std::vector<tVectorX> dEdx_cpu_arr = {};
+        cTimeUtil::Begin("cpu");
+        for (int i = 0; i < test_n; i++)
+        {
+            tVectorX x = tVectorX::Random(2);
+            batch_x.emplace_back(x);
+            float E = net_cpu->forward_unnormed(x);
+            tVectorX dEdx = net_cpu->calc_grad_wrt_input_unnormed(x);
+
+            E_cpu_arr.emplace_back(E);
+            dEdx_cpu_arr.emplace_back(dEdx);
+        }
+
+        _FLOAT cpu_elasped = cTimeUtil::End("cpu");
+
+        auto net_gpu = mNet2dLstGPU[0];
+
+        net_gpu->forward_unnormed_energy_grad_batch(batch_x);
+
+        cTimeUtil::Begin("gpu");
+        std::tuple<std::vector<float>, std::vector<tVectorXf>> ret =
+            net_gpu->forward_unnormed_energy_grad_batch(batch_x);
+        _FLOAT gpu_elasped = cTimeUtil::End("gpu");
+
+        std::vector<float> E_gpu = std::get<0>(ret);
+        std::vector<tVectorXf> dEdx_gpu = std::get<1>(ret);
+
+        // _FLOAT E_gpu = net_gpu->forward_unnormed(x);
+
+        for (int i = 0; i < test_n; i++)
+        {
+            printf("[%d] E cpu %.2f gpu %.2f\n", i, E_cpu_arr[i], E_gpu[i]);
+        }
+        for (int i = 0; i < test_n; i++)
+        {
+            printf("[%d] dEdx cpu %.2f %.2f gpu %.2f %.2f\n", i,
+                   dEdx_cpu_arr[i][0], dEdx_cpu_arr[i][1], dEdx_gpu[i][0],
+                   dEdx_gpu[i][1]);
+        }
+        printf("[2d] cpu %.2f gpu %.2f\n", cpu_elasped, gpu_elasped);
     }
-    printf("[1d] cpu %.2f gpu %.2f\n", cpu_elasped, gpu_elasped);
 }
+
+void energy_grad_hess_verify()
+{
+    bool test_1d = false;
+    int test_n = 1;
+    if (test_1d)
+    {
+        // test 1d
+        auto net_cpu = mNet1dLstCPU[0];
+        tEigenArr<tVectorX> batch_x = {};
+        std::vector<float> E_cpu_arr = {};
+        std::vector<tVectorX> dEdx_cpu_arr = {};
+        std::vector<tMatrixX> dE2dx2_cpu_arr = {};
+        cTimeUtil::Begin("cpu");
+        for (int i = 0; i < test_n; i++)
+        {
+            tVectorX x = tVectorX::Random(1);
+            batch_x.emplace_back(x);
+            float E = net_cpu->forward_unnormed(x);
+            tVectorX dEdx = net_cpu->calc_grad_wrt_input_unnormed(x);
+            tMatrixX dE2dx2 = net_cpu->calc_hess_wrt_input_unnormed(x);
+
+            E_cpu_arr.emplace_back(E);
+            dEdx_cpu_arr.emplace_back(dEdx);
+            dE2dx2_cpu_arr.emplace_back(dE2dx2);
+        }
+
+        _FLOAT cpu_elasped = cTimeUtil::End("cpu");
+
+        auto net_gpu = mNet1dLstGPU[0];
+
+        net_gpu->forward_unnormed_energy_grad_hess_batch(batch_x);
+
+        cTimeUtil::Begin("gpu");
+        std::tuple<std::vector<float>, std::vector<tVectorXf>,
+                   std::vector<tMatrixXf>>
+            ret = net_gpu->forward_unnormed_energy_grad_hess_batch(batch_x);
+        _FLOAT gpu_elasped = cTimeUtil::End("gpu");
+
+        std::vector<float> E_gpu = std::get<0>(ret);
+        std::vector<tVectorXf> dEdx_gpu = std::get<1>(ret);
+        std::vector<tMatrixXf> dE2dx2_gpu = std::get<2>(ret);
+
+        // _FLOAT E_gpu = net_gpu->forward_unnormed(x);
+
+        for (int i = 0; i < test_n; i++)
+        {
+            printf("[%d] E cpu %.2f gpu %.2f\n", i, E_cpu_arr[i], E_gpu[i]);
+        }
+        for (int i = 0; i < test_n; i++)
+        {
+            printf("[%d] dEdx cpu %.2f gpu %.2f\n", i, dEdx_cpu_arr[i][0],
+                   dEdx_gpu[i][0]);
+        }
+        for (int i = 0; i < test_n; i++)
+        {
+            printf("[%d] dE2dx2 cpu %.2f gpu %.2f\n", i,
+                   dE2dx2_cpu_arr[i](0, 0), dE2dx2_gpu[i](0, 0));
+        }
+        printf("[1d] cpu %.2f gpu %.2f\n", cpu_elasped, gpu_elasped);
+    }
+    else
+    {
+
+        // test 2d
+        int test_n = 10;
+        auto net_cpu = mNet2dLstCPU[0];
+        tEigenArr<tVectorX> batch_x = {};
+        std::vector<float> E_cpu_arr = {};
+        std::vector<tVectorX> dEdx_cpu_arr = {};
+        std::vector<tMatrixX> dE2dx2_cpu_arr = {};
+        cTimeUtil::Begin("cpu");
+        for (int i = 0; i < test_n; i++)
+        {
+            tVectorX x = tVectorX::Random(2);
+            batch_x.emplace_back(x);
+            float E = net_cpu->forward_unnormed(x);
+            tVectorX dEdx = net_cpu->calc_grad_wrt_input_unnormed(x);
+            tMatrix2 dE2dx2 = net_cpu->calc_hess_wrt_input_unnormed(x);
+
+            E_cpu_arr.emplace_back(E);
+            dEdx_cpu_arr.emplace_back(dEdx);
+            dE2dx2_cpu_arr.emplace_back(dE2dx2);
+        }
+
+        _FLOAT cpu_elasped = cTimeUtil::End("cpu");
+
+        auto net_gpu = mNet2dLstGPU[0];
+
+        net_gpu->forward_unnormed_energy_grad_hess_batch(batch_x);
+
+        cTimeUtil::Begin("gpu");
+        std::tuple<std::vector<float>, std::vector<tVectorXf>,
+                   std::vector<tMatrixXf>>
+            ret = net_gpu->forward_unnormed_energy_grad_hess_batch(batch_x);
+        _FLOAT gpu_elasped = cTimeUtil::End("gpu");
+
+        std::vector<float> E_gpu = std::get<0>(ret);
+        std::vector<tVectorXf> dEdx_gpu = std::get<1>(ret);
+        std::vector<tMatrixXf> dE2dx2_gpu = std::get<2>(ret);
+
+        // _FLOAT E_gpu = net_gpu->forward_unnormed(x);
+
+        for (int i = 0; i < test_n; i++)
+        {
+            printf("[%d] E cpu %.2f gpu %.2f\n", i, E_cpu_arr[i], E_gpu[i]);
+        }
+        for (int i = 0; i < test_n; i++)
+        {
+            printf("[%d] dEdx cpu %.2f %.2f gpu %.2f %.2f\n", i,
+                   dEdx_cpu_arr[i][0], dEdx_cpu_arr[i][1], dEdx_gpu[i][0],
+                   dEdx_gpu[i][1]);
+        }
+        for (int i = 0; i < test_n; i++)
+        {
+            printf("[%d] dE2dx2 cpu\n", i);
+            std::cout << dE2dx2_cpu_arr[i] << std::endl;
+            printf("dE2dx2 gpu\n");
+            std::cout << dE2dx2_gpu[i] << std::endl;
+            // printf("[%d] dE2dx2 cpu %.2f %.2f gpu %.2f %.2f\n", i,
+            //        dEdx_cpu_arr[i][0], dEdx_cpu_arr[i][1], dEdx_gpu[i][0],
+            //        dEdx_gpu[i][1]);
+        }
+        printf("[2d] cpu %.2f gpu %.2f\n", cpu_elasped, gpu_elasped);
+    }
+}
+
+#include "gpu_utils/CudaUtil.h"
+
 int main()
 {
     std::string path = "dnn.json";
     BuildNet(path);
-    energy_grad_verify();
+
+    // for (auto &x : mNet1dLstCPU)
+    //     printf("network 1D %.1f KB\n", x->GetBytesOfParam<float>() / 1e3);
+    // for (auto &x : mNet2dLstCPU)
+    //     printf("network 2D %.1f KB\n", x->GetBytesOfParam<float>() / 1e3);
+
+    // printf("sm %.1f KB\n", cCudaUtil::GetSharedMemoryBytes() / 1e3);
+    // energy_grad_verify();
+    // energy_grad_verify();
+    energy_grad_hess_verify();
     // std::vector<int> cpu_val = {3, 3, 4, 5};
     // cCudaArray<int> gpu_val;
     // // gpu_val.Upload(cpu_val.data(), cpu_val.size());

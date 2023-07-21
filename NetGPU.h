@@ -32,6 +32,10 @@ public:
     virtual std::tuple<std::vector<float>, std::vector<tVectorXf>>
     forward_unnormed_energy_grad_batch(const tEigenArr<tVectorX> &x);
 
+    virtual std::tuple<std::vector<float>, std::vector<tVectorXf>,
+                       std::vector<tMatrixXf>>
+    forward_unnormed_energy_grad_hess_batch(const tEigenArr<tVectorX> &x);
+
     int mInputDim;
     int mOutputDim;
 
@@ -48,6 +52,9 @@ protected:
     cCudaArray<float> mTriangleEnergyGPU;  //
     cCudaArray<tCudaVector1f> mdEdxGPU_1d; //
     cCudaArray<tCudaVector2f> mdEdxGPU_2d; //
+
+    cCudaArray<tCudaMatrix1f> mdE2dx2GPU_1d; //
+    cCudaArray<tCudaMatrix2f> mdE2dx2GPU_2d; //
 
     // ================ buffer for grad ===============
     /*
@@ -71,5 +78,19 @@ protected:
     void forward_func_1d_energy_grad(const cCudaArray<tCudaVector1f> &x_arr,
                                      cCudaArray<float> &E_arr,
                                      cCudaArray<tCudaVector1f> &dEdx_arr);
+    void forward_func_2d_energy_grad(const cCudaArray<tCudaVector2f> &x_arr,
+                                     cCudaArray<float> &E_arr,
+                                     cCudaArray<tCudaVector2f> &dEdx_arr);
+
+    void
+    forward_func_1d_energy_grad_hess(const cCudaArray<tCudaVector1f> &x_arr,
+                                     cCudaArray<float> &E_arr,
+                                     cCudaArray<tCudaVector1f> &dEdx_arr,
+                                     cCudaArray<tCudaMatrix1f> &dE2dx2_arr);
+    void
+    forward_func_2d_energy_grad_hess(const cCudaArray<tCudaVector2f> &x_arr,
+                                     cCudaArray<float> &E_arr,
+                                     cCudaArray<tCudaVector2f> &dEdx_arr,
+                                     cCudaArray<tCudaMatrix2f> &dE2dx2_arr);
 };
 SIM_DECLARE_PTR(NetGPU);
