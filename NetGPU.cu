@@ -81,7 +81,7 @@ __global__ void NetworkForward(
                                        ? (cur_triangle_st_comp_buf +
                                           cur_comp_buf_offset - prev_rows)
                                        : (x_cur.mData);
-            BLAS_Ax_plus_b(mWLst_cublas_dev[layer_id], w_rows, w_cols,
+            BLAS_Ax_plus_b_column_major(mWLst_cublas_dev[layer_id], w_rows, w_cols,
                            mbLst_cublas_dev[layer_id], x_input,
                            cur_triangle_st_comp_buf + cur_comp_buf_offset, 0);
             if (layer_id == 0)
@@ -131,22 +131,22 @@ __global__ void NetworkForward(
 void NetGPU::forward_func_1d(const cCudaArray<tCudaVector1f> &x_arr,
                              cCudaArray<float> &E_arr)
 {
-    int N = x_arr.Size();
-    NetworkForward CUDA_at(N, 128)(
-        N, x_arr.Ptr(), 1, 1, this->mLayersGPU.Size(), mLayersGPU.Ptr(),
-        mWLst_cublas_dev.Ptr(), mbLst_cublas_dev.Ptr(), mInputMeanGPU.Ptr(),
-        mInputStdGPU.Ptr(), mOutputMean, mOutputStd,
-        mCompBufGPU_for_energy.Ptr(), TRIANGLE_COMP_BUF_SIZE, E_arr.Ptr());
-    CUDA_ERR("NetworkForward 1d");
+    // int N = x_arr.Size();
+    // NetworkForward CUDA_at(N, 128)(
+    //     N, x_arr.Ptr(), 1, 1, this->mLayersGPU.Size(), mLayersGPU.Ptr(),
+    //     mWLst_cublas_dev.Ptr(), mbLst_cublas_dev.Ptr(), mInputMeanGPU.Ptr(),
+    //     mInputStdGPU.Ptr(), mOutputMean, mOutputStd,
+    //     mCompBufGPU_for_energy.Ptr(), TRIANGLE_COMP_BUF_SIZE, E_arr.Ptr());
+    // CUDA_ERR("NetworkForward 1d");
 }
 void NetGPU::forward_func_2d(const cCudaArray<tCudaVector2f> &x_arr,
                              cCudaArray<float> &E_arr)
 {
-    int N = x_arr.Size();
-    NetworkForward CUDA_at(N, 128)(
-        N, x_arr.Ptr(), 2, 1, this->mLayersGPU.Size(), mLayersGPU.Ptr(),
-        mWLst_cublas_dev.Ptr(), mbLst_cublas_dev.Ptr(), mInputMeanGPU.Ptr(),
-        mInputStdGPU.Ptr(), mOutputMean, mOutputStd,
-        mCompBufGPU_for_energy.Ptr(), TRIANGLE_COMP_BUF_SIZE, E_arr.Ptr());
-    CUDA_ERR("NetworkForward 2d");
+    // int N = x_arr.Size();
+    // NetworkForward CUDA_at(N, 128)(
+    //     N, x_arr.Ptr(), 2, 1, this->mLayersGPU.Size(), mLayersGPU.Ptr(),
+    //     mWLst_cublas_dev.Ptr(), mbLst_cublas_dev.Ptr(), mInputMeanGPU.Ptr(),
+    //     mInputStdGPU.Ptr(), mOutputMean, mOutputStd,
+    //     mCompBufGPU_for_energy.Ptr(), TRIANGLE_COMP_BUF_SIZE, E_arr.Ptr());
+    
 }

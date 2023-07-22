@@ -32,9 +32,10 @@ public:
     virtual std::tuple<std::vector<float>, std::vector<tVectorXf>>
     forward_unnormed_energy_grad_batch(const tEigenArr<tVectorX> &x);
 
-    virtual std::tuple<std::vector<float>, std::vector<tVectorXf>,
-                       std::vector<tMatrixXf>>
-    forward_unnormed_energy_grad_hess_batch(const tEigenArr<tVectorX> &x);
+    virtual void forward_unnormed_energy_grad_hess_batch(
+        const tEigenArr<tVectorX> &x, std::vector<float> &,
+        std::vector<tVectorXf> &, std::vector<tMatrixXf> &);
+    void AdjustGPUBuffer(int num_of_triangles);
 
     int mInputDim;
     int mOutputDim;
@@ -43,12 +44,13 @@ protected:
     void TransferDataToGPU();
     cCudaArray<unsigned int> mLayersGPU;
     cCudaArray<float *> mWLst_cublas_dev;
+    cCudaArray<float *> mWLst_row_major_dev;
     cCudaArray<float *> mbLst_cublas_dev;
     cCudaArray<float> mInputMeanGPU, mInputStdGPU;
 
     // buffer size need to be adjusted
-    cCudaArray<float> mCompBufGPU_for_energy; //
-    const int TRIANGLE_COMP_BUF_SIZE = 100;
+    // cCudaArray<float> mCompBufGPU_for_energy; //
+    // const int TRIANGLE_COMP_BUF_SIZE = 100;
     cCudaArray<float> mTriangleEnergyGPU;  //
     cCudaArray<tCudaVector1f> mdEdxGPU_1d; //
     cCudaArray<tCudaVector2f> mdEdxGPU_2d; //
@@ -64,8 +66,6 @@ protected:
     */
     cCudaArray<float> mCompBufGPU_for_grad[3];
     const int TRIANGLE_COMP_BUF_SIZE_FOR_GRAD[3] = {2000, 2000, 2000};
-
-    void AdjustGPUBuffer(int num_of_triangles);
 
     // ================ energy inference ==============
     void forward_func_1d(const cCudaArray<tCudaVector1f> &x_arr,

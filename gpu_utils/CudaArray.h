@@ -20,6 +20,14 @@ public:
         mMemory.ReadFromDevice(pHost, Count * sizeof(Type), 0);
     }
 
+    template<typename eigen_type> void Download(std::vector<eigen_type> & eig_mat_arr) const 
+    {
+        size_t num_ele = this->Size();
+
+        eig_mat_arr.resize(num_ele);
+        
+        mMemory.ReadFromDevice(eig_mat_arr[0].data(), num_ele * sizeof(Type), 0);
+    }
     void Download(std::vector<Type> &HostVec) const
     {
         size_t num_of_ele = this->Size();

@@ -56,6 +56,7 @@ else()
     # message(FATAL_ERROR add unix c++17 definitions)
     # ---------------------enable debug symbols---------------------
     add_definitions(-g)
+    set(CMAKE_CUDA_FLAGS_DEBUG "-G")
 endif()
 
 
@@ -76,6 +77,9 @@ add_library(
     NetGPU2.cu
 )
 target_link_libraries(net_lib PUBLIC utils_lib cuda_lib)
+
+# target_compile_options(net_lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-w -maxrregcount=32>)
+target_compile_options(net_lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-w>)
 
 add_executable(main ./main.cpp ./main.cu)
 target_link_libraries(main PUBLIC cuda_lib net_lib CUDA::cudart CUDA::cublas)

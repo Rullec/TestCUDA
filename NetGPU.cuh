@@ -2,10 +2,10 @@
 #define NET_GPU_CUH_
 #include "gpu_utils/CudaDevPtr.h"
 
-__device__ __inline__ void GetWbShape(devPtr<const uint> layer_arr,
-                                      int layer_arr_size, int input_dim,
-                                      int output_dim, int layer_id, int &w_rows,
-                                      int &w_cols, int &b_size)
+__device__ __inline__ void GetWbShape(const uint *layer_arr, int layer_arr_size,
+                                      int input_dim, int output_dim,
+                                      int layer_id, int &w_rows, int &w_cols,
+                                      int &b_size)
 {
     if (layer_id < 0 || layer_id >= layer_arr_size + 1)
     {
@@ -59,50 +59,56 @@ __device__ __inline__ void PrintCublasVec(int vec_size, float *const host_ptr)
 
 __device__ __inline__ float Softplus(const float &x)
 {
-    return std::log(1.0 + std::exp(x));
+    return std::log(1.0f + std::exp(x));
+    // return 0.0f;
 }
 
 __device__ __inline__ float SoftplusGrad(const float &x)
 {
     float exp_x = std::exp(x);
-    return exp_x / (1 + exp_x);
+    return exp_x / (1.0f + exp_x);
+    // return 0.0f;
 }
 
 __device__ __inline__ void ApplySoftplus(devPtr<float> data_ptr, int N)
 {
     for (int i = 0; i < N; i++)
     {
-        data_ptr[i] = Softplus(data_ptr[i]);
+        data_ptr[i] = std::log(1.0f + std::exp(data_ptr[i]));
     }
 }
 
-__device__ __inline__ void BLAS_Ax_plus_b(const float *A, int A_rows,
-                                          int A_cols, const float *b,
-                                          const float *x, float *sol, int debug)
+__device__ __inline__ void BLAS_Ax_plus_b_column_major(const float *A,
+                                                       int A_rows, int A_cols,
+                                                       const float *b,
+                                                       const float *x,
+                                                       float *sol, int debug)
 {
-    if (debug != 0)
-        printf("begin blas\n");
     for (int i = 0; i < A_rows; i++)
-    {
-        if (debug != 0)
-            printf("begin blas row %d\n", i);
         sol[i] = b[i];
-        for (int j = 0; j < A_cols; j++)
+    for (int j = 0; j < A_cols; j++)
+    {
+        for (int i = 0; i < A_rows; i++)
         {
-            if (debug != 0)
-                printf("A(%d, %d) = %.3f, x[%d] = %.3f\n", i, j,
-                       A[j * A_rows + i], j, x[j]);
             sol[i] += A[j * A_rows + i] * x[j];
         }
-        if (debug != 0)
-        {
-            printf("sol[%d] = %.3f\n", i, sol[i]);
-        }
-        // if (debug != 0)
-        //     printf("\n");
     }
-    if (debug != 0)
-        printf("done blas\n");
+}
+
+__device__ __inline__ void BLAS_Ax_plus_b_row_major(const float *A, int A_rows,
+                                                    int A_cols, const float *b,
+                                                    const float *x, float *sol,
+                                                    int debug)
+{
+    for (int i = 0; i < A_rows; i++)
+        sol[i] = b[i];
+    for (int i = 0; i < A_rows; i++)
+    {
+        for (int j = 0; j < A_cols; j++)
+        {
+            sol[i] += A[i * A_cols + j] * x[j];
+        }
+    }
 }
 
 template <int num>
