@@ -6,7 +6,7 @@ class cCudaUtil
 {
 public:
     static size_t GetSharedMemoryBytes(int device_id = 0);
-    // static size_t GetRegisterBytes();
+    static size_t GetMaxThreadPerBlock(int device_id = 0);
 };
 
 #endif

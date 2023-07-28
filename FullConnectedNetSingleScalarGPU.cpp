@@ -1,32 +1,36 @@
-#include "NetGPU.h"
+#include "FullConnectedNetSingleScalarGPU.h"
 #include "gpu_utils/CublasUtil.h"
 #include "utils/LogUtil.h"
 
-NetGPU::NetGPU() {}
-void NetGPU::Init(std::string path)
+cFCNetworkSingleScalarGPU::cFCNetworkSingleScalarGPU() {}
+void cFCNetworkSingleScalarGPU::Init(std::string path)
 {
-    Net::Init(path);
+    cFCNetworkSingleScalar::Init(path);
     TransferDataToGPU();
 }
-void NetGPU::Init(const Json::Value &path)
+void cFCNetworkSingleScalarGPU::Init(const Json::Value &path)
 {
-    Net::Init(path);
+    cFCNetworkSingleScalar::Init(path);
     TransferDataToGPU();
 }
-void NetGPU::Init(int input_dim, int output_dim, int layers,
-                  const std::vector<tMatrixX> &weight_lst,
-                  const std::vector<tVectorX> &bias_lst, std::string act,
-                  const tVectorX &input_mean, const _FLOAT &output_mean,
-                  const tVectorX &input_std, const _FLOAT &output_std)
+void cFCNetworkSingleScalarGPU::Init(int input_dim, int output_dim, int layers,
+                                     const std::vector<tMatrixX> &weight_lst,
+                                     const std::vector<tVectorX> &bias_lst,
+                                     std::string act,
+                                     const tVectorX &input_mean,
+                                     const _FLOAT &output_mean,
+                                     const tVectorX &input_std,
+                                     const _FLOAT &output_std)
 {
-    Net::Init(input_dim, output_dim, layers, weight_lst, bias_lst, act,
-              input_mean, output_mean, input_std, output_std);
+    cFCNetworkSingleScalar::Init(input_dim, output_dim, layers, weight_lst,
+                                 bias_lst, act, input_mean, output_mean,
+                                 input_std, output_std);
     TransferDataToGPU();
 }
 
 extern void VisitStats(const cCudaArray<float> &input_mean_gpu);
 
-NetGPU::~NetGPU()
+cFCNetworkSingleScalarGPU::~cFCNetworkSingleScalarGPU()
 {
     // for (auto &x : mWLst_cublas_dev)
     // {
@@ -39,7 +43,7 @@ NetGPU::~NetGPU()
     // mWLst_cublas_dev.clear();
     // mbLst_cublas_dev.clear();
 }
-void NetGPU::TransferDataToGPU()
+void cFCNetworkSingleScalarGPU::TransferDataToGPU()
 {
     // 1. layers
     std::vector<uint> layers(mLayers.begin(), mLayers.end());
@@ -102,23 +106,33 @@ void NetGPU::TransferDataToGPU()
     // VisitStats(mInputStdGPU);
 }
 
-_FLOAT NetGPU::forward_normed(const tVectorX &x) { return 0; }
-tVectorX NetGPU::calc_grad_wrt_input_normed(const tVectorX &x)
+_FLOAT cFCNetworkSingleScalarGPU::forward_normed(const tVectorX &x)
+{
+    return 0;
+}
+tVectorX
+cFCNetworkSingleScalarGPU::calc_grad_wrt_input_normed(const tVectorX &x)
 {
     return tVectorX::Zero(0);
 }
-tMatrixX NetGPU::calc_hess_wrt_input_normed(const tVectorX &x)
+tMatrixX
+cFCNetworkSingleScalarGPU::calc_hess_wrt_input_normed(const tVectorX &x)
 {
     return tMatrixX::Zero(0, 0);
 }
 
 // ============== input & output are all unnormed ===============
-_FLOAT NetGPU::forward_unnormed(const tVectorX &x) { return 0; }
-tVectorX NetGPU::calc_grad_wrt_input_unnormed(const tVectorX &x)
+_FLOAT cFCNetworkSingleScalarGPU::forward_unnormed(const tVectorX &x)
+{
+    return 0;
+}
+tVectorX
+cFCNetworkSingleScalarGPU::calc_grad_wrt_input_unnormed(const tVectorX &x)
 {
     return tVectorX::Zero(0);
 }
-tMatrixX NetGPU::calc_hess_wrt_input_unnormed(const tVectorX &x)
+tMatrixX
+cFCNetworkSingleScalarGPU::calc_hess_wrt_input_unnormed(const tVectorX &x)
 {
     return tMatrixX::Zero(0, 0);
 }
@@ -126,9 +140,8 @@ tMatrixX NetGPU::calc_hess_wrt_input_unnormed(const tVectorX &x)
 // extern std::vector<float>
 // forward_func_1d(const cCudaArray<tCudaVector1f> &x_arr);
 
-typedef Eigen::Matrix<float, 2, 1> tVector2f;
-std::vector<_FLOAT>
-NetGPU::forward_unnormed_batch(const tEigenArr<tVectorX> &x_arr)
+std::vector<_FLOAT> cFCNetworkSingleScalarGPU::forward_unnormed_batch(
+    const tEigenArr<tVectorX> &x_arr)
 {
     AdjustGPUBuffer(x_arr.size());
 
@@ -208,7 +221,7 @@ NetGPU::forward_unnormed_batch(const tEigenArr<tVectorX> &x_arr)
     }
 }
 
-void NetGPU::AdjustGPUBuffer(int num_of_triangles)
+void cFCNetworkSingleScalarGPU::AdjustGPUBuffer(int num_of_triangles)
 {
     bool need_update = mTriangleEnergyGPU.Size() < num_of_triangles;
     if (need_update)
@@ -233,7 +246,8 @@ void NetGPU::AdjustGPUBuffer(int num_of_triangles)
 }
 
 std::tuple<std::vector<float>, std::vector<tVectorXf>>
-NetGPU::forward_unnormed_energy_grad_batch(const tEigenArr<tVectorX> &x_arr)
+cFCNetworkSingleScalarGPU::forward_unnormed_energy_grad_batch(
+    const tEigenArr<tVectorX> &x_arr)
 {
 
     AdjustGPUBuffer(x_arr.size());
@@ -325,9 +339,8 @@ NetGPU::forward_unnormed_energy_grad_batch(const tEigenArr<tVectorX> &x_arr)
         return std::make_tuple(e_cpu, dedx_eigen);
     }
 }
-typedef Eigen::Matrix<float, 2, 2> tMatrix2f;
 #include "utils/ProfUtil.h"
-void NetGPU::forward_unnormed_energy_grad_hess_batch(
+void cFCNetworkSingleScalarGPU::forward_unnormed_energy_grad_hess_batch(
     const tEigenArr<tVectorX> &x_arr, std::vector<float> &E_arr,
     std::vector<tVectorXf> &grad_arr, std::vector<tMatrixXf> &hess_arr)
 {
@@ -338,16 +351,19 @@ void NetGPU::forward_unnormed_energy_grad_hess_batch(
     int dim = x_arr[0].size();
     if (dim == 1)
     {
+        cProfUtil::Begin("gpu/data_transform_and_upload");
         std::vector<tCudaVector1f> x_arr_cpu(x_arr.size());
         std::transform(x_arr.begin(), x_arr.end(), x_arr_cpu.begin(),
                        [](const tVectorX &res)
                        {
                            tCudaVector1f ret;
                            ret[0] = res[0];
+                           //    ret[1] = res[1];
                            return ret;
                        });
         cCudaArray<tCudaVector1f> x_arr_gpu;
         x_arr_gpu.Upload(x_arr_cpu);
+        cProfUtil::End("gpu/data_transform_and_upload");
 
         // std::cout << "layers = " << mLayers.transpose() << std::endl;
         // printf("w lst shape = ");
@@ -361,32 +377,42 @@ void NetGPU::forward_unnormed_energy_grad_hess_batch(
         //     printf("(%ld), ", x.size());
         // printf("\n");
 
+        cProfUtil::Begin("gpu/net_infer");
         forward_func_1d_energy_grad_hess(x_arr_gpu, mTriangleEnergyGPU,
                                          mdEdxGPU_1d, mdE2dx2GPU_1d);
-        mTriangleEnergyGPU.Download(E_arr);
+        cProfUtil::End("gpu/net_infer");
+        cProfUtil::Begin("gpu/download");
         std::vector<tCudaVector1f> dedx_cpu;
+        // std::vector<float> e_cpu;
+        mTriangleEnergyGPU.Download(E_arr);
         mdEdxGPU_1d.Download(dedx_cpu);
-
         std::vector<tCudaMatrix1f> de2dx2_cpu;
         mdE2dx2GPU_1d.Download(de2dx2_cpu);
 
-        grad_arr.resize(dedx_cpu.size());
-        hess_arr.resize(dedx_cpu.size());
+        cProfUtil::End("gpu/download");
+        // grad_arr.resize(dedx_cpu.size());
+        // hess_arr.resize(dedx_cpu.size());
+        // for (int i = 0; i < x_arr.size(); i++)
+        // {
+        //     grad_arr[i].resize(2);
+        //     hess_arr[i].resize(2, 2);
+        // }
+        cProfUtil::Begin("gpu/transform");
 
-        // std::vector<_FLOAT> E_arr_double(E_arr.size());
-        std::transform(dedx_cpu.begin(), dedx_cpu.end(), grad_arr.begin(),
-                       [](const tCudaVector1f &val)
-                       { return tVectorXf::Ones(1) * val[0]; });
+        OMP_PARALLEL_FOR(OMP_MAX_THREADS)
+        for (int i = 0; i < x_arr.size(); i++)
+        {
+            const auto &tmp_hess = de2dx2_cpu[i];
+            // grad_arr[i].resize(2);
+            // hess_arr[i].resize(2, 2);
+            //  << dedx_cpu[i][0], dedx_cpu[i][1];
 
-        std::transform(de2dx2_cpu.begin(), de2dx2_cpu.end(), hess_arr.begin(),
-                       [](const tCudaMatrix1f &val)
-                       {
-                           tMatrixXf ret(1, 1);
-                           ret(0, 0) = val(0, 0);
-                           return ret;
-                       });
-        // return e_cpu_double;
-        // return std::make_tuple(e_cpu, dedx_eigen, de2dx2_eigen);
+            memcpy(grad_arr[i].data(), dedx_cpu[i].mData, sizeof(float) * 1);
+            memcpy(hess_arr[i].data(), de2dx2_cpu[i].mData, sizeof(float) * 1);
+            // .noalias() = tMatrix2f() tmp_hess(0, 0), tmp_hess(1, 0),
+            // tmp_hess(0, 1),
+            //     tmp_hess(1, 1);
+        }
     }
     else
     {

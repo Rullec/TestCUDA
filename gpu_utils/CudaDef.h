@@ -48,6 +48,9 @@
 #define CUDA_at(total, pre_block)                                              \
 <<<SIM_MAX(1, ((int)total + pre_block - 1) / pre_block), pre_block>>>
 
+#define CUDA_at_SM(total, pre_block, sm_bytes)                                              \
+<<<SIM_MAX(1, ((int)total + pre_block - 1) / pre_block), pre_block, sm_bytes>>>
+
 #define CUDA_for(thread_index, total)                                          \
     CUDA_function;                                                             \
     const auto thread_index = blockDim.x * blockIdx.x + threadIdx.x;           \

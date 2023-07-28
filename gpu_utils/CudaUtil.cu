@@ -30,6 +30,20 @@ size_t cCudaUtil::GetSharedMemoryBytes(int device_id)
     assert(device_id < count);
     cudaGetDeviceProperties(&prop, device_id);
     size_t sm_size = prop.sharedMemPerBlock;
+    
     return sm_size;
+}
+
+size_t cCudaUtil::GetMaxThreadPerBlock(int device_id)
+{
+
+    cudaDeviceProp prop;
+    int count;
+
+    cudaGetDeviceCount(&count);
+
+    assert(device_id < count);
+    cudaGetDeviceProperties(&prop, device_id);
+    return prop.maxThreadsPerBlock;
 }
 // static size_t cCudaUtil::GetRegisterBytes();

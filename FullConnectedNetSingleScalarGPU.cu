@@ -1,25 +1,25 @@
-#include "NetGPU.cuh"
+#include "FullConnectedNetSingleScalarGPU.cuh"
 #include "gpu_utils/CudaArray.h"
 #include "gpu_utils/CudaDef.h"
 #include "gpu_utils/CudaIntrinsic.h"
 #include <vector>
 
-__global__ void VisitStats(int N, devPtr<const float> arr_gpu)
-{
-    CUDA_function;
-    int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (tid < N)
-    {
-        printf("visit stats arr_gpu [%d] = %.3f\n", tid, arr_gpu[tid]);
-    }
-}
+// __global__ void VisitStats(int N, devPtr<const float> arr_gpu)
+// {
+//     CUDA_function;
+//     int tid = threadIdx.x + blockIdx.x * blockDim.x;
+//     if (tid < N)
+//     {
+//         printf("visit stats arr_gpu [%d] = %.3f\n", tid, arr_gpu[tid]);
+//     }
+// }
 
-void VisitStats(const cCudaArray<float> &arr_gpu)
-{
-    int N = arr_gpu.Size();
-    VisitStats CUDA_at(N, 128)(N, arr_gpu.Ptr());
-    CUDA_ERR("VisitStats");
-}
+// void VisitStats(const cCudaArray<float> &arr_gpu)
+// {
+//     int N = arr_gpu.Size();
+//     VisitStats CUDA_at(N, 128)(N, arr_gpu.Ptr());
+//     CUDA_ERR("VisitStats");
+// }
 
 template <int num>
 __global__ void NetworkForward(
@@ -127,8 +127,8 @@ __global__ void NetworkForward(
     }
 }
 
-#include "NetGPU.h"
-void NetGPU::forward_func_1d(const cCudaArray<tCudaVector1f> &x_arr,
+#include "FullConnectedNetSingleScalarGPU.h"
+void cFCNetworkSingleScalarGPU::forward_func_1d(const cCudaArray<tCudaVector1f> &x_arr,
                              cCudaArray<float> &E_arr)
 {
     // int N = x_arr.Size();
@@ -139,7 +139,7 @@ void NetGPU::forward_func_1d(const cCudaArray<tCudaVector1f> &x_arr,
     //     mCompBufGPU_for_energy.Ptr(), TRIANGLE_COMP_BUF_SIZE, E_arr.Ptr());
     // CUDA_ERR("NetworkForward 1d");
 }
-void NetGPU::forward_func_2d(const cCudaArray<tCudaVector2f> &x_arr,
+void cFCNetworkSingleScalarGPU::forward_func_2d(const cCudaArray<tCudaVector2f> &x_arr,
                              cCudaArray<float> &E_arr)
 {
     // int N = x_arr.Size();

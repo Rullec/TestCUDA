@@ -1,4 +1,4 @@
-#include "Net.h"
+#include "FullConnectedNetSingleScalar.h"
 #include "utils/LogUtil.h"
 
 template <typename dtype, int dim>
@@ -24,7 +24,7 @@ convert_stdvec_to_eigenvec(const std::vector<dtype> &std_vec)
 
     return x;
 }
-int Net::GetNumOfParam() const
+int cFCNetworkSingleScalar::GetNumOfParam() const
 {
     int num_of_param = 0;
     for (auto &w : this->mWLst)
@@ -34,12 +34,12 @@ int Net::GetNumOfParam() const
     return num_of_param;
 }
 
-template <typename dtype> int Net::GetBytesOfParam() const
+template <typename dtype> int cFCNetworkSingleScalar::GetBytesOfParam() const
 {
     return sizeof(dtype) * GetNumOfParam();
 }
 
-template <> int Net::GetBytesOfParam<float>() const
+template <> int cFCNetworkSingleScalar::GetBytesOfParam<float>() const
 {
     return sizeof(float) * GetNumOfParam();
 }
@@ -55,11 +55,13 @@ tVectorX SoftplusGrad(const tVectorX &x)
     return y;
 }
 
-void Net::Init(int input_dim_, int output_dim_, int layers_,
-               const std::vector<tMatrixX> &weight_lst_,
-               const std::vector<tVectorX> &bias_lst_, std::string act_,
-               const tVectorX &input_mean, const _FLOAT &output_mean,
-               const tVectorX &input_std, const _FLOAT &output_std)
+void cFCNetworkSingleScalar::Init(int input_dim_, int output_dim_, int layers_,
+                                  const std::vector<tMatrixX> &weight_lst_,
+                                  const std::vector<tVectorX> &bias_lst_,
+                                  std::string act_, const tVectorX &input_mean,
+                                  const _FLOAT &output_mean,
+                                  const tVectorX &input_std,
+                                  const _FLOAT &output_std)
 
 {
     mInputDim = input_dim_;
@@ -87,8 +89,8 @@ void Net::Init(int input_dim_, int output_dim_, int layers_,
 #include "utils/LogUtil.h"
 #include <iostream>
 #include <utils/json/json.h>
-Net::Net() {}
-void Net::Init(const Json::Value &root)
+cFCNetworkSingleScalar::cFCNetworkSingleScalar() {}
+void cFCNetworkSingleScalar::Init(const Json::Value &root)
 {
 
     // parse value
@@ -155,7 +157,7 @@ void Net::Init(const Json::Value &root)
     // SIM_INFO("input std = {}", mInputStd.transpose());
     // SIM_INFO("output std = {}", mOutputStd);
 }
-void Net::Init(std::string path)
+void cFCNetworkSingleScalar::Init(std::string path)
 {
     if (cFileUtil::ExistsFile(path) == false)
     {
@@ -165,7 +167,7 @@ void Net::Init(std::string path)
     SIM_INFO("load fc network from {}", path);
     Json::Value root;
     cJsonUtil::LoadJson(path, root);
-    Net::Init(root);
+    cFCNetworkSingleScalar::Init(root);
 }
 
 double Exp(double x) // the functor we want to apply
@@ -173,7 +175,7 @@ double Exp(double x) // the functor we want to apply
     return std::exp(x);
 }
 
-_FLOAT Net::forward_normed(const tVectorX &x)
+_FLOAT cFCNetworkSingleScalar::forward_normed(const tVectorX &x)
 {
     // x : I,
 
@@ -204,7 +206,7 @@ _FLOAT Net::forward_normed(const tVectorX &x)
     return z[0];
 }
 
-tVectorX Net::calc_grad_wrt_input_normed(const tVectorX &x)
+tVectorX cFCNetworkSingleScalar::calc_grad_wrt_input_normed(const tVectorX &x)
 {
     assert(x.size() == mInputDim);
     tVectorX z = x;
@@ -271,7 +273,7 @@ tVectorX Net::calc_grad_wrt_input_normed(const tVectorX &x)
     return grad_lst;
 }
 
-tMatrixX Net::calc_hess_wrt_input_normed(const tVectorX &x)
+tMatrixX cFCNetworkSingleScalar::calc_hess_wrt_input_normed(const tVectorX &x)
 {
     int N = 1;
     tMatrixX ret(mInputDim, mInputDim);
@@ -334,7 +336,7 @@ tMatrixX Net::calc_hess_wrt_input_normed(const tVectorX &x)
 
 */
 #include "utils/ProfUtil.h"
-_FLOAT Net::forward_unnormed(const tVectorX &x_unnormed)
+_FLOAT cFCNetworkSingleScalar::forward_unnormed(const tVectorX &x_unnormed)
 {
     // cProfUtil::Begin("cloth/update_mat/cycles/forward");
     // tMatrixX x_unnormed = Clamp(x_unnormed_);
@@ -372,8 +374,9 @@ _FLOAT Net::forward_unnormed(const tVectorX &x_unnormed)
     // cProfUtil::End("cloth/update_mat/cycles/forward");
     return unnormed_y;
 }
-void Net::SetComment(std::string) {}
-tVectorX Net::calc_grad_wrt_input_unnormed(const tVectorX &x_unnormed)
+void cFCNetworkSingleScalar::SetComment(std::string) {}
+tVectorX
+cFCNetworkSingleScalar::calc_grad_wrt_input_unnormed(const tVectorX &x_unnormed)
 {
     // int N = x_unnormed.rows();
     // if (mInputMean.size() == 2)
@@ -410,7 +413,8 @@ tVectorX Net::calc_grad_wrt_input_unnormed(const tVectorX &x_unnormed)
     // SIM_INFO("mInputStd = {}", mInputStd.transpose());
     return res;
 }
-tMatrixX Net::calc_hess_wrt_input_unnormed(const tVectorX &x_unnormed)
+tMatrixX
+cFCNetworkSingleScalar::calc_hess_wrt_input_unnormed(const tVectorX &x_unnormed)
 {
     // cProfUtil::Begin("cloth/update_mat/cycles/forward_hess");
     // tMatrixX x_unnormed = Clamp(x_unnormed_);
@@ -464,9 +468,8 @@ tMatrixX Net::calc_hess_wrt_input_unnormed(const tVectorX &x_unnormed)
     return ret;
 }
 
-bool Net::CheckUnnormedInputExceedRangeAndComplain(const tVectorX &x_unnormed,
-                                                   std::string label,
-                                                   bool silence) const
+bool cFCNetworkSingleScalar::CheckUnnormedInputExceedRangeAndComplain(
+    const tVectorX &x_unnormed, std::string label, bool silence) const
 {
     for (int j = 0; j < mInputDim; j++)
     {
@@ -486,4 +489,138 @@ bool Net::CheckUnnormedInputExceedRangeAndComplain(const tVectorX &x_unnormed,
         }
     }
     return false;
+}
+
+void cFCNetworkSingleScalar::SetBakedInfo(tNetBakeInfoPtr ptr)
+{
+    mBakeInfo = ptr;
+}
+
+int findInterval1D(const float x, float xmin, float xmax, int N)
+{
+    if (x < xmin || x > xmax)
+    {
+        return -1; // x is out of the range of x_arr
+    }
+
+    float step = (xmax - xmin) / (N - 1);
+
+    int x_index = std::floor((x - xmin) / step);
+    return x_index; // x is in the interval (x_arr[idx-1], x_arr[idx])
+}
+tVector2i findInterval2D(const tVectorXf &x, float xmin, float xmax, float ymin,
+                         float ymax, int N)
+{
+    // Calculate the steps
+    float xstep = (xmax - xmin) / (N - 1);
+    float ystep = (ymax - ymin) / (N - 1);
+
+    // Compute the indices
+    int x_index = std::floor((x.x() - xmin) / xstep);
+    int y_index = std::floor((x.y() - ymin) / ystep);
+
+    // Check if x is within the grid
+    if (x_index < 0 || x_index >= N - 1 || y_index < 0 || y_index >= N - 1)
+    {
+        return tVector2i(-1, -1); // x is out of the range of the grid
+    }
+
+    return tVector2i(x_index, y_index);
+}
+typedef Eigen::Matrix<float, 4, 1> tVector4f;
+tVector4f CalcBilinearInterpolationCoef(float xmin, float xmax, float ymin,
+                                        float ymax, float x, float y)
+{
+    float x_frac = (x - xmin) / (xmax - xmin);
+    float y_frac = (y - ymin) / (ymax - ymin);
+
+    float x_coeff1 = 1.0f - x_frac;
+    float x_coeff2 = x_frac;
+    float y_coeff1 = 1.0f - y_frac;
+    float y_coeff2 = y_frac;
+
+    return tVector4f(x_coeff1 * y_coeff1, x_coeff2 * y_coeff1,
+                     x_coeff1 * y_coeff2, x_coeff2 * y_coeff2);
+}
+
+void cFCNetworkSingleScalar::calc_E_grad_hess_unnormed_baked(
+    const tVectorX &x, float &final_E, tVectorXf &final_grad,
+    tMatrixXf &final_hess)
+{
+    if (x.size() == 1)
+    {
+        // 1D
+        int idx = findInterval1D(x[0], this->mXRange(0, 0), this->mXRange(1, 0),
+                                 mBakeInfo->samples);
+        SIM_ASSERT(idx >= 0 && idx < mBakeInfo->samples);
+
+        float xmin = mBakeInfo->x_arr[idx][0],
+              xmax = mBakeInfo->x_arr[idx + 1][0];
+
+        final_E = 0;
+        final_grad.noalias() = tVectorXf::Zero(1);
+        final_hess.noalias() = tMatrixXf::Zero(1, 1);
+
+        float coef = (x[0] - xmin) / (xmax - xmin);
+
+        tVectorXf x_pred = (1 - coef) * mBakeInfo->x_arr[idx] +
+                           coef * mBakeInfo->x_arr[idx + 1];
+        SIM_INFO("x_pred = {}, x_input = {}", x_pred.transpose(),
+                 x.transpose());
+        final_E = (1 - coef) * mBakeInfo->e_arr[idx] +
+                  coef * mBakeInfo->e_arr[idx + 1];
+        final_grad.noalias() = (1 - coef) * mBakeInfo->grad_arr[idx] +
+                               coef * mBakeInfo->grad_arr[idx + 1];
+        final_hess.noalias() = (1 - coef) * mBakeInfo->hess_arr[idx] +
+                               coef * mBakeInfo->hess_arr[idx + 1];
+    }
+    else
+    {
+        // 2D
+
+        float xmin = mXRange(0, 0), xmax = mXRange(1, 0), ymin = mXRange(0, 1),
+              ymax = mXRange(1, 1);
+        tVector2i xmin_ymin_idx =
+            findInterval2D(x.cast<float>(), xmin, xmax, ymin, ymax, mBakeInfo->samples);
+        
+        SIM_ASSERT(xmin_ymin_idx.minCoeff() > 0);
+
+        auto visit = [](const tVector2i &x, int samples) -> int
+        { return x[0] * samples + x[1]; };
+
+        tVector2i xmax_ymax_idx = xmin_ymin_idx + tVector2i::Ones();
+
+        int indices[4] = {
+            visit(xmin_ymin_idx, mBakeInfo->samples),
+            visit(xmin_ymin_idx + tVector2i(1, 0), mBakeInfo->samples),
+            visit(xmin_ymin_idx + tVector2i(0, 1), mBakeInfo->samples),
+            visit(xmax_ymax_idx, mBakeInfo->samples),
+        };
+        tVector2f xmin_ymin_x = mBakeInfo->x_arr[indices[0]];
+        tVector2f xmax_ymax_x = mBakeInfo->x_arr[indices[3]];
+
+        SIM_ASSERT(x[0] >= xmin_ymin_x[0] && x[0] <= xmax_ymax_x[0]);
+        SIM_ASSERT(x[1] >= xmin_ymin_x[1] && x[1] <= xmax_ymax_x[1]);
+
+        tVector4f coef = CalcBilinearInterpolationCoef(
+            xmin_ymin_x[0], xmax_ymax_x[0], xmin_ymin_x[1], xmax_ymax_x[1],
+            x[0], x[1]);
+
+        tVectorXf x_pred = tVectorXf::Zero(2);
+
+        // combine for E, dEdx, E_hess
+        final_E = 0;
+        final_grad.noalias() = tVectorXf::Zero(2);
+        final_hess.noalias() = tMatrixXf::Zero(2, 2);
+#pragma unroll
+        for (int i = 0; i < 4; i++)
+        {
+            x_pred += coef[i] * mBakeInfo->x_arr[indices[i]];
+            final_E += coef[i] * mBakeInfo->e_arr[indices[i]];
+            final_grad += coef[i] * mBakeInfo->grad_arr[indices[i]];
+            final_hess += coef[i] * mBakeInfo->hess_arr[indices[i]];
+        }
+        SIM_INFO("x_pred = {}, x_input = {}", x_pred.transpose(),
+                 x.transpose());
+    }
 }

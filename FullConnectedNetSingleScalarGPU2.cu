@@ -1,4 +1,4 @@
-#include "NetGPU.cuh"
+#include "FullConnectedNetSingleScalarGPU.cuh"
 #include "gpu_utils/CudaArray.h"
 #include "gpu_utils/CudaDef.h"
 #include "gpu_utils/CudaIntrinsic.h"
@@ -258,12 +258,12 @@ __device__ void NetworkForward_energy_grad_row_major(
     // float cur_multi_buf[sizeof_cur_multi_buf];
     // float cur_result_buf0[sizeof_cur_result_buf0];
     // float cur_result_buf1[sizeof_cur_result_buf1];
-
+    // printf("[device] forward 1 begin\n");
     constexpr int max_net_width = 32;
     float energy_forward_buf[max_net_width * 2];
     bool energy_buf_second_seg_used = 0;
     constexpr int max_jac_size = max_net_width * num;
-    float jac_forward_buf[max_jac_size * num];
+    float jac_forward_buf[max_jac_size * 2];
     bool jac_buf_second_seg_used = 0;
 
     // printf("[kernel] begin\n");
@@ -298,6 +298,7 @@ __device__ void NetworkForward_energy_grad_row_major(
         int num_of_row_cur_reuslt = 0, num_of_col_cur_reuslt = 0;
         for (size_t layer_id = 0; layer_id < total_layers; layer_id++)
         {
+            // printf("[device] forward layer %d begin\n", layer_id);
             int w_rows, w_cols, b_size;
             GetWbShape(layer_arr, num_mid_layers, num, output_dim, layer_id,
                        w_rows, w_cols, b_size);
@@ -312,6 +313,7 @@ __device__ void NetworkForward_energy_grad_row_major(
             // BLAS_Ax_plus_b_column_major(mWLst_cublas_dev[layer_id], w_rows,
             // w_cols,
             //                mbLst_cublas_dev[layer_id], x_input, x_output, 0);
+            // printf("[device] forward layer %d BLAS begin\n", layer_id);
             BLAS_Ax_plus_b_row_major(w_rowmajor_data, w_rows, w_cols, b_data,
                                      x_input, x_output, 0);
             energy_buf_second_seg_used = !energy_buf_second_seg_used;
@@ -321,6 +323,7 @@ __device__ void NetworkForward_energy_grad_row_major(
             //                cur_triangle_st_comp_buf + cur_comp_buf_offset);
             // calculate for gradient
             // printf("layer %d jac begin\n", layer_id);
+            // printf("[device] forward layer %d jac begin\n", layer_id);
             {
                 const float *jac_input_column_major =
                     jac_forward_buf + max_jac_size * jac_buf_second_seg_used;
@@ -403,7 +406,7 @@ __device__ void NetworkForward_energy_grad_row_major(
                     // printf("layer %d jac calc_type2 end\n", layer_id);
                 }
             }
-
+            // printf("[device] forward layer %d softplus begin\n", layer_id);
             if (layer_id != total_layers - 1)
             {
                 ApplySoftplus(x_output, w_rows);
@@ -628,11 +631,12 @@ __global__ void NetworkForward_energy_grad_hess_global_row_major(
     float E = 0;
     float dEdx[num];
     tCudaMatrix<float, num, 1> x_cur = x_arr[tid];
-
+    // printf("[global] infer 1 begin\n");
     NetworkForward_energy_grad_row_major<num>(
         tid, x_cur, output_dim, num_mid_layers, layer_arr_sm, input_mean,
         input_std, output_mean, output_std, network_param,
         network_param_w_st_pos, network_param_b_st_pos, &E, dEdx);
+    // printf("[global] infer 1 done\n");
     energy_arr[tid] = E;
     for (int i = 0; i < num; i++)
     {
@@ -671,10 +675,10 @@ __global__ void NetworkForward_energy_grad_hess_global_row_major(
         }
 }
 
-#include "NetGPU.h"
-void NetGPU::forward_func_1d_energy_grad(const cCudaArray<tCudaVector1f> &x_arr,
-                                         cCudaArray<float> &E_arr,
-                                         cCudaArray<tCudaVector1f> &dEdx_arr)
+#include "FullConnectedNetSingleScalarGPU.h"
+void cFCNetworkSingleScalarGPU::forward_func_1d_energy_grad(
+    const cCudaArray<tCudaVector1f> &x_arr, cCudaArray<float> &E_arr,
+    cCudaArray<tCudaVector1f> &dEdx_arr)
 {
     int N = x_arr.Size();
     // NetworkForward_energy_grad_shared_mem CUDA_at(N, 128)(
@@ -687,9 +691,9 @@ void NetGPU::forward_func_1d_energy_grad(const cCudaArray<tCudaVector1f> &x_arr,
         E_arr.Ptr(), dEdx_arr.Ptr());
 }
 
-void NetGPU::forward_func_2d_energy_grad(const cCudaArray<tCudaVector2f> &x_arr,
-                                         cCudaArray<float> &E_arr,
-                                         cCudaArray<tCudaVector2f> &dEdx_arr)
+void cFCNetworkSingleScalarGPU::forward_func_2d_energy_grad(
+    const cCudaArray<tCudaVector2f> &x_arr, cCudaArray<float> &E_arr,
+    cCudaArray<tCudaVector2f> &dEdx_arr)
 {
     int N = x_arr.Size();
     // NetworkForward_energy_grad_shared_mem CUDA_at(N, 128)(
@@ -702,19 +706,18 @@ void NetGPU::forward_func_2d_energy_grad(const cCudaArray<tCudaVector2f> &x_arr,
         E_arr.Ptr(), dEdx_arr.Ptr());
 }
 
-void NetGPU::forward_func_1d_energy_grad_hess(
+void cFCNetworkSingleScalarGPU::forward_func_1d_energy_grad_hess(
     const cCudaArray<tCudaVector1f> &x_arr, cCudaArray<float> &E_arr,
     cCudaArray<tCudaVector1f> &dEdx_arr, cCudaArray<tCudaMatrix1f> &dE2dx2_arr)
 {
     int N = x_arr.Size();
     // NetworkForward_energy_grad_shared_mem CUDA_at(N, 128)(
-    NetworkForward_energy_grad_hess_global<1> CUDA_at(N, 128)(
+    NetworkForward_energy_grad_hess_global_row_major<1> CUDA_at(N, 512)(
         N, x_arr.Ptr(), 1, this->mLayersGPU.Size(), mLayersGPU.Ptr(),
-        mWLst_cublas_dev.Ptr(), mbLst_cublas_dev.Ptr(), mInputMeanGPU.Ptr(),
-        mInputStdGPU.Ptr(), mOutputMean, mOutputStd,
-
-        // ============== solution ================
-        E_arr.Ptr(), dEdx_arr.Ptr(), dE2dx2_arr.Ptr());
+        mWLst_row_major_dev.Ptr(), mbLst_cublas_dev.Ptr(), mInputMeanGPU.Ptr(),
+        mInputStdGPU.Ptr(), mOutputMean, mOutputStd, E_arr.Ptr(),
+        dEdx_arr.Ptr(), dE2dx2_arr.Ptr());
+    CUDA_ERR("NetworkForward_energy_grad_hess_global_row_major 1");
 }
 
 #define MAX_NAME_LENGTH 64
@@ -739,7 +742,7 @@ typedef struct
     cudaEventDestroy(timer.start);                                             \
     cudaEventDestroy(timer.stop);
 
-void NetGPU::forward_func_2d_energy_grad_hess(
+void cFCNetworkSingleScalarGPU::forward_func_2d_energy_grad_hess(
     const cCudaArray<tCudaVector2f> &x_arr, cCudaArray<float> &E_arr,
     cCudaArray<tCudaVector2f> &dEdx_arr, cCudaArray<tCudaMatrix2f> &dE2dx2_arr)
 {

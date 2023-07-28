@@ -1,12 +1,12 @@
 #pragma once
-#include "Net.h"
+#include "FullConnectedNetSingleScalar.h"
 #include "gpu_utils/CudaArray.h"
 #include "utils/DefUtil.h"
-class NetGPU : public Net
+class cFCNetworkSingleScalarGPU : public cFCNetworkSingleScalar
 {
 public:
-    explicit NetGPU();
-    virtual ~NetGPU();
+    explicit cFCNetworkSingleScalarGPU();
+    virtual ~cFCNetworkSingleScalarGPU();
     virtual void Init(std::string path);
     virtual void Init(const Json::Value &path);
     virtual void Init(int input_dim, int output_dim, int layers,
@@ -93,4 +93,4 @@ protected:
                                      cCudaArray<tCudaVector2f> &dEdx_arr,
                                      cCudaArray<tCudaMatrix2f> &dE2dx2_arr);
 };
-SIM_DECLARE_PTR(NetGPU);
+SIM_DECLARE_PTR(cFCNetworkSingleScalarGPU);
