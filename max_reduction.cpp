@@ -5,9 +5,9 @@
 #include "utils/MathUtil.h"
 
 template <typename dtype>
-dtype GetMaxParallel(const cCudaArray<dtype> &data_arr,
-                     int shared_mem_size_bytes, int max_thread,
-                     cCudaArray<dtype> &comp_buf);
+dtype MinmaxReductionGPU(const cCudaArray<dtype> &data_arr,
+                         int shared_mem_size_bytes, int max_thread,
+                         cCudaArray<dtype> &comp_buf, bool is_max);
 
 int main()
 {
@@ -17,7 +17,7 @@ int main()
         tVectorXf x(test_num);
         x.setRandom();
         x *= 1000;
-        float max_x = x.maxCoeff();
+        float max_x = x.minCoeff();
         // printf("max x = %.6f\n", max_x);
         cCudaArray<float> x_gpu;
         x_gpu.Resize(test_num);
@@ -28,7 +28,7 @@ int main()
         cCudaArray<float> x_buf;
 
         float max_x_gpu =
-            GetMaxParallel<float>(x_gpu, sm_bytes, max_thread, x_buf);
+            MinmaxReductionGPU<float>(x_gpu, sm_bytes, max_thread, x_buf, false);
         float diff = std::fabs(max_x - max_x_gpu);
         SIM_INFO("num {},max x cpu {:.3f} gpu {:.3f}", test_num, max_x,
                  max_x_gpu);
