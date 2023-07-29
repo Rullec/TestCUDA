@@ -28,12 +28,24 @@ public:
         
         mMemory.ReadFromDevice(eig_mat_arr[0].data(), num_ele * sizeof(Type), 0);
     }
-    void Download(std::vector<Type> &HostVec) const
+    void Download(std::vector<Type> &HostVec, int offset = 0, int ed = -1) const
     {
         size_t num_of_ele = this->Size();
-        HostVec.resize(num_of_ele);
+#ifdef ENABLE_CUDA_MEMORY_CHECK
+        if(offset >= num_of_ele)
+        {
+            printf("Error: Download offset %d >= ele %zu\n", offset, num_of_ele);
+        }
+        if(ed == -1)
+            ed = num_of_ele;
+        else if(ed >= num_of_ele)
+        {
+            printf("Error: Download End %d >= ele %zu\n", ed, num_of_ele);
+        }
+#endif
+        HostVec.resize(ed - offset);
 
-        mMemory.ReadFromDevice(HostVec.data(), this->Size() * sizeof(Type), 0);
+        mMemory.ReadFromDevice(HostVec.data(), (ed - offset) * sizeof(Type), offset * sizeof(Type));
     }
 
     void Upload(const Type *pHost, size_type Count)

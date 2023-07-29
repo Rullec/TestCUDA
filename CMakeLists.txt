@@ -86,7 +86,7 @@ target_link_libraries(net_lib PUBLIC utils_lib cuda_lib)
 target_compile_options(net_lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-w>)
 
 add_executable(main ./main.cpp)
-add_executable(reduction ./max_reduction.cpp max_reduction.cu)
+add_executable(reduction ./gpu_reduction.cpp gpu_reduction.cu)
 
 target_link_libraries(main PUBLIC cuda_lib net_lib CUDA::cudart CUDA::cublas)
 target_link_libraries(reduction PUBLIC cuda_lib CUDA::cudart CUDA::cublas)

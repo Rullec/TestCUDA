@@ -6,7 +6,8 @@
 // typedef int (*DeviceFuncPtr)(int, int);
 
 template <typename dtype>
-__global__ void ReductionKernel(int num_of_ele, devPtr<const dtype> data_arr,
+__global__ void ReductionKernel(int num_of_ele, int data_st, int data_gap,
+                                devPtr<const dtype> data_arr,
                                 devPtr<dtype> output, bool is_max)
 {
     CUDA_function;
@@ -25,7 +26,7 @@ __global__ void ReductionKernel(int num_of_ele, devPtr<const dtype> data_arr,
     int block_id = blockIdx.x;
     // int num_of_thread_per_block = blockDim.x;
 
-    shared_mem[tid_local] = data_arr[tid_global];
+    shared_mem[tid_local] = data_arr[data_st + data_gap * tid_global];
     __syncthreads();
 
     // 2. begin to do reduction
@@ -78,17 +79,17 @@ __global__ void ReductionKernel(int num_of_ele, devPtr<const dtype> data_arr,
 }
 
 template <typename dtype>
-dtype MinmaxReductionGPU(const cCudaArray<dtype> &data_arr,
-                         int shared_mem_size_bytes, int max_thread,
+dtype MinmaxReductionGPU(const cCudaArray<dtype> &data_arr, int ele_st,
+                         int ele_gap, int shared_mem_size_bytes, int max_thread,
                          cCudaArray<dtype> &comp_buf, bool is_max)
 {
     int ele_bytes = sizeof(dtype);
     // printf("ele_bytes = %d\n", ele_bytes);
     int max_thread_per_block = shared_mem_size_bytes / ele_bytes;
-    printf("max_thread_per_block in hardware = %d\n", max_thread);
-    printf("max_thread_per_block in sm block = %d\n", max_thread_per_block);
+    // printf("max_thread_per_block in hardware = %d\n", max_thread);
+    // printf("max_thread_per_block in sm block = %d\n", max_thread_per_block);
     max_thread_per_block = std::min(max_thread, max_thread_per_block);
-    printf("max_thread_per_block = %d\n", max_thread_per_block);
+    // printf("max_thread_per_block = %d\n", max_thread_per_block);
 
     // 1. determine block_size
     unsigned int thread_per_block = 1;
@@ -98,12 +99,14 @@ dtype MinmaxReductionGPU(const cCudaArray<dtype> &data_arr,
 
     // warp size > 32. warp size = 64.
     // we are rely on at least one single full warp to initialize sm[32] to -inf
-    while ((thread_per_block >> 1) > data_arr.Size() &&
+    int num_of_ele = (data_arr.Size() - ele_st) / ele_gap +
+                     (((data_arr.Size() - ele_st) % ele_gap) != 0);
+    while ((thread_per_block >> 1) > num_of_ele &&
            (thread_per_block >> 1) >= 64)
         thread_per_block >>= 1;
-    printf("thread_per_block = %d\n", thread_per_block);
+    // printf("thread_per_block = %d\n", thread_per_block);
 
-    int num_of_ele_cur = data_arr.Size();
+    int num_of_ele_cur = num_of_ele;
     bool is_first_iter = true;
 
     // printf("num_of_ele_cur = %d\n", num_of_ele_cur);
@@ -135,16 +138,21 @@ dtype MinmaxReductionGPU(const cCudaArray<dtype> &data_arr,
         // printf("output_size after =  %d\n", output_size);
         // printf("sm_bytes = %d\n", sm_bytes);
         ReductionKernel<dtype> CUDA_at_SM(num_of_ele_cur, thread_per_block,
-                                          sm_bytes)(num_of_ele_cur, data_ptr,
-                                                    buf_ptr, is_max);
+                                          sm_bytes)(
+            num_of_ele_cur, (is_first_iter ? ele_st : 0),
+            (is_first_iter ? ele_gap : 1), data_ptr, buf_ptr, is_max);
+        CUDA_ERR("ReductionKernel");
         num_of_ele_cur = output_size;
         is_first_iter = false;
         // printf("one iter done, num of ele cur = %d\n", num_of_ele_cur);
         if (num_of_ele_cur == 1)
         {
-            std::vector<float> x_cpu;
-            comp_buf.Download(x_cpu);
-            return x_cpu[buf_st_idx];
+            // std::vector<float> x_cpu;
+            // comp_buf.Download(x_cpu, 0);
+            // return x_cpu[buf_st_idx];
+            std::vector<float> x_cpu_new;
+            comp_buf.Download(x_cpu_new, buf_st_idx, buf_st_idx + 1);
+            return x_cpu_new[0];
         }
 
         // swap data and buf
@@ -155,7 +163,7 @@ dtype MinmaxReductionGPU(const cCudaArray<dtype> &data_arr,
 }
 
 template float MinmaxReductionGPU<float>(const cCudaArray<float> &data_arr,
-                                         int shared_mem_size_bytes,
-                                         int max_thread,
+                                         int shared_mem_size_bytes, int ele_st,
+                                         int ele_gap, int max_thread,
                                          cCudaArray<float> &comp_buf,
                                          bool is_max);
