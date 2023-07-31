@@ -85,12 +85,15 @@ target_link_libraries(net_lib PUBLIC utils_lib cuda_lib)
 # target_compile_options(net_lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-w -maxrregcount=32>)
 target_compile_options(net_lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-w>)
 
-add_executable(main ./main.cpp)
-add_executable(reduction ./gpu_reduction.cpp gpu_reduction.cu)
-add_executable(presum ./gpu_presum.cpp gpu_presum.cu)
+# add_executable(main ./main.cpp)
+# add_executable(reduction ./gpu_reduction.cpp gpu_reduction.cu)
+# add_executable(presum ./gpu_presum.cpp gpu_presum.cu)
 
-target_link_libraries(main PUBLIC cuda_lib net_lib CUDA::cudart CUDA::cublas)
-target_link_libraries(reduction PUBLIC cuda_lib CUDA::cudart CUDA::cublas)
-target_link_libraries(presum PUBLIC cuda_lib CUDA::cudart CUDA::cublas)
+add_executable(seg_scan gpu_seg_scan.cu seg_scan.cpp)
+ 
 
-install(TARGETS main RUNTIME DESTINATION ${CMAKE_CURRENT_SOURCE_DIR})
+# target_link_libraries(main PUBLIC cuda_lib net_lib CUDA::cudart CUDA::cublas)
+# target_link_libraries(reduction PUBLIC cuda_lib CUDA::cudart CUDA::cublas)
+target_link_libraries(seg_scan PUBLIC cuda_lib CUDA::cudart CUDA::cublas utils_lib)
+
+# install(TARGETS main RUNTIME DESTINATION ${CMAKE_CURRENT_SOURCE_DIR})
