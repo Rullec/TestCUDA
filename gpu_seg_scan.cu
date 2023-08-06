@@ -4,13 +4,15 @@
 #include <climits>
 
 template <typename dtype>
-__global__ void CalcSegScan_Kernel(
-    int num_of_data, devPtr<dtype> raw_data, devPtr<unsigned int> seg_begin_arr,
-    devPtr<dtype> tar_data, devPtr<dtype> block_offset_final,
-    devPtr<unsigned int> pos_of_first_1_in_this_block,
-    bool output_to_block_offset_final, bool inplace_calculation,
-    bool inclusive_prefix_sum, bool count_sum_of_flag,
-    devPtr<unsigned int> sum_of_flag_per_block, bool output_pos_of_first_1)
+__global__ void
+CalcSegScan_Kernel(int num_of_data, devPtr<const dtype> raw_data,
+                   devPtr<const unsigned int> seg_begin_arr,
+                   devPtr<dtype> tar_data, devPtr<dtype> block_offset_final,
+                   devPtr<unsigned int> pos_of_first_1_in_this_block,
+                   bool output_to_block_offset_final, bool inplace_calculation,
+                   bool inclusive_prefix_sum, bool count_sum_of_flag,
+                   devPtr<unsigned int> sum_of_flag_per_block,
+                   bool output_pos_of_first_1)
 {
     CUDA_function;
 
@@ -19,7 +21,7 @@ __global__ void CalcSegScan_Kernel(
 
     if (output_pos_of_first_1 == true && tid_local == 0)
     {
-        pos_of_first_1_in_this_block[blockIdx.x] = 10000;
+        pos_of_first_1_in_this_block[blockIdx.x] = 1 << 15;
     }
     int num_of_data_this_block = 0;
     if ((blockIdx.x + 1) * blockDim.x <= num_of_data)
@@ -64,7 +66,10 @@ __global__ void CalcSegScan_Kernel(
     {
         smem[tid_local] = raw_data[tid_global];
         smem_origin[tid_local] = smem[tid_local];
-        // printf("smem[%d] = %d\n", tid_local, smem[tid_local]);
+        // if constexpr (std::is_same_v<dtype, float>)
+        //     printf("smem[%d] = %.3f\n", tid_local, smem[tid_local]);
+        // else
+        //     printf("smem[%d] = %d\n", tid_local, smem[tid_local]);
         origin_flag[tid_local] = seg_begin_arr[tid_global];
         buf_flag[tid_local] = origin_flag[tid_local];
         // printf("flag[%d] = %d\n", tid_local, origin_flag[tid_local]);
@@ -90,10 +95,18 @@ __global__ void CalcSegScan_Kernel(
             if (buf_flag[tid_local + stepsize] == 0)
             {
                 smem[tid_local + stepsize] += smem[tid_local];
-                // printf(
-                //     "[up,update val] buf[%d]==0, smem[%d] += smem[%d], =
-                //     %d\n", tid_local + stepsize, tid_local + stepsize,
-                //     tid_local, smem[tid_local + stepsize]);
+                // if constexpr (std::is_same_v<dtype, float>)
+                //     printf("[up,update val] buf[%d]==0, smem[%d] += smem[%d],
+                //     "
+                //            "= %.3f\n",
+                //            tid_local + stepsize, tid_local + stepsize,
+                //            tid_local, smem[tid_local + stepsize]);
+                // else
+                //     printf("[up,update val] buf[%d]==0, smem[%d] += smem[%d],
+                //     "
+                //            "=%d\n",
+                //            tid_local + stepsize, tid_local + stepsize,
+                //            tid_local, smem[tid_local + stepsize]);
             }
             buf_flag[tid_local + stepsize] |= buf_flag[tid_local];
             // printf("[up,update flag] buf[%d] |= buf[%d], = %d\n",
@@ -108,7 +121,10 @@ __global__ void CalcSegScan_Kernel(
     //     printf("step1.4\n");
 
     // if (tid_local < num_of_data_this_block)
-    //     printf("smem[%d] = %d\n", tid_local, smem[tid_local]);
+    //     if constexpr (std::is_same_v<dtype, float>)
+    //         printf("smem[%d] = %.3f\n", tid_local, smem[tid_local]);
+    //     else
+    //         printf("smem[%d] = %d\n", tid_local, smem[tid_local]);
     // 2. inverse pass
     dtype last_sum = smem[tid_local];
     // 2.1 set root to zero
@@ -129,8 +145,13 @@ __global__ void CalcSegScan_Kernel(
 
             dtype tmp = smem[child_id_left];
 
-            // printf("raw left[%d] = %d, right[%d] = %d\n", child_id_left,
-            // smem[child_id_left], tid_local, smem[tid_local]);
+            // if constexpr (std::is_same_v<dtype, float>)
+            //     printf("raw left[%d] = %.3f, right[%d] = %.3f\n",
+            //     child_id_left,
+            //            smem[child_id_left], tid_local, smem[tid_local]);
+            // else
+            //     printf("raw left[%d] = %d, right[%d] = %d\n", child_id_left,
+            //            smem[child_id_left], tid_local, smem[tid_local]);
             smem[child_id_left] = smem[tid_local];
             if (origin_flag[child_id_left + 1] == 1)
             {
@@ -171,7 +192,6 @@ __global__ void CalcSegScan_Kernel(
         if (inplace_calculation == false)
         {
             tar_data[tid_global] = cur_val;
-
             // if constexpr (std::is_same_v<dtype, int> ||
             //               std::is_same_v<dtype, unsigned int>)
             //     printf("write to tar %d = %d\n", tid_global,
@@ -182,9 +202,11 @@ __global__ void CalcSegScan_Kernel(
         }
         else
         {
-            raw_data[tid_global] = cur_val;
-            // printf("write to raw %d = %d\n", tid_global, smem[tid_local]);
         }
+        // {
+        //     raw_data[tid_global] = cur_val;
+        //     // printf("write to raw %d = %d\n", tid_global, smem[tid_local]);
+        // }
     }
 
     if (output_to_block_offset_final == true)
@@ -227,7 +249,8 @@ int downcast_to_power_of_2(int val)
     return val;
 }
 int calc_num_thread_for_seg_scan_two_power(int num_of_data, int max_sm_size,
-                                           int max_thread)
+                                           int max_thread,
+                                           int one_element_sm_size)
 {
 
     int two_power_capacity = 1;
@@ -243,7 +266,7 @@ int calc_num_thread_for_seg_scan_two_power(int num_of_data, int max_sm_size,
         total: two_power * 6 bytes
     */
 
-    int num_thread = std::min(max_thread, max_sm_size / 10);
+    int num_thread = std::min(max_thread, max_sm_size / one_element_sm_size);
     num_thread = std::min(num_thread, two_power_capacity);
     num_thread = std::max(num_thread, 32);
 
@@ -294,16 +317,18 @@ ApplyOffsetToBlocksForSegScan(int num_of_data, devPtr<dtype> data_arr,
 
 template <typename dtype>
 void CalcSegScan(int shared_mem_size_bytes, int max_thread,
-                 cCudaArray<dtype> &x_gpu, cCudaArray<unsigned int> &seg_begin,
+                 const cCudaArray<dtype> &x_gpu,
+                 const cCudaArray<unsigned int> &seg_begin,
                  cCudaArray<dtype> &x_presum_gpu, bool is_inclusive)
 {
     int num_of_data = x_gpu.Size();
 
+    int one_element_sm_bytes = (2 * sizeof(dtype) + 2);
     int num_thread = calc_num_thread_for_seg_scan_two_power(
-        num_of_data, shared_mem_size_bytes, max_thread);
+        num_of_data, shared_mem_size_bytes, max_thread, one_element_sm_bytes);
 
-    int sm_bytes = num_thread * (2 * sizeof(dtype) + 2);
-    printf("total data num %d, thread num %d\n", num_of_data, num_thread);
+    int sm_bytes = num_thread * one_element_sm_bytes;
+    // printf("total data num %d, thread num %d\n", num_of_data, num_thread);
     // std::cout << "num_thread = " << num_thread << std::endl;
     int num_blocks =
         (num_of_data / num_thread) + ((num_of_data % num_thread) != 0);
@@ -315,7 +340,7 @@ void CalcSegScan(int shared_mem_size_bytes, int max_thread,
         cCudaArray<dtype> useless;
 
         cCudaArray<unsigned int> useless_ui;
-        CalcSegScan_Kernel CUDA_at_SM(num_of_data, num_thread, sm_bytes)(
+        CalcSegScan_Kernel<dtype> CUDA_at_SM(num_of_data, num_thread, sm_bytes)(
             num_of_data, x_gpu.Ptr(), seg_begin.Ptr(), x_presum_gpu.Ptr(),
             buf.Ptr(), useless_ui.Ptr(), false, false, is_inclusive, false,
             useless_ui.Ptr(), false);
@@ -332,6 +357,14 @@ void CalcSegScan(int shared_mem_size_bytes, int max_thread,
         sum_of_flag_each_block.Resize(num_blocks);
         position_of_first_1_in_this_block.Resize(num_blocks);
 
+        cudaMemset(offset_of_each_block.Ptr(), 0, sizeof(dtype) * num_blocks);
+        cudaMemset(offset_of_each_block_final.Ptr(), 0,
+                   sizeof(dtype) * num_blocks);
+        cudaMemset(sum_of_flag_each_block.Ptr(), 0, sizeof(uint) * num_blocks);
+        cudaMemset(position_of_first_1_in_this_block.Ptr(), 0,
+                   sizeof(uint) * num_blocks);
+        CUDA_ERR("memset for seg scan");
+
         CalcSegScan_Kernel CUDA_at_SM(num_of_data, num_thread, sm_bytes)(
             num_of_data, x_gpu.Ptr(), seg_begin.Ptr(), x_presum_gpu.Ptr(),
             offset_of_each_block.Ptr(), position_of_first_1_in_this_block.Ptr(),
@@ -339,54 +372,12 @@ void CalcSegScan(int shared_mem_size_bytes, int max_thread,
             true);
         CUDA_ERR("CalcSegScan_Kernel");
 
-        int num_thread_for_offset_calc = calc_num_thread_for_seg_scan_two_power(
-            num_blocks, shared_mem_size_bytes, max_thread);
+        // calculate offset
 
-        int num_blocks_for_offset_calc =
-            (num_blocks / num_thread_for_offset_calc) +
-            ((num_blocks % num_thread_for_offset_calc) != 0);
-        if (num_blocks_for_offset_calc > 1)
-        {
-            printf("[error] even the block offset %d cannot be contained in sm "
-                   "%d\n",
-                   num_blocks_for_offset_calc, num_thread_for_offset_calc);
-            exit(1);
-        }
+        CalcSegScan<dtype>(shared_mem_size_bytes, max_thread,
+                           offset_of_each_block, sum_of_flag_each_block,
+                           offset_of_each_block_final, true);
 
-        int sm_bytes_for_offset_calc =
-            num_thread_for_offset_calc * (2 * sizeof(dtype) + 2);
-        /*
-
-                   bool output_to_block_offset_final
-                   bool inplace_calculation
-                   bool inclusive_prefix_sum
-                   bool count_sum_of_flag
-                   devPtr<unsigned int> sum_of_flag_per_block
-
-        */
-        // {
-        //     std::vector<unsigned int> sum_of_flag_each_block_cpu;
-        //     sum_of_flag_each_block.Download(sum_of_flag_each_block_cpu);
-        //     std::cout << "sum_of_flag_each_block_cpu = ";
-        //     for (auto &x : sum_of_flag_each_block_cpu)
-        //         std::cout << x << " ";
-        //     std::cout << std::endl;
-        // }
-        // {
-        //     std::vector<dtype> offset_of_each_block_cpu;
-        //     offset_of_each_block.Download(offset_of_each_block_cpu);
-        //     std::cout << "offset_of_each_block_cpu = ";
-        //     for (auto &x : offset_of_each_block_cpu)
-        //         std::cout << x << " ";
-        //     std::cout << std::endl;
-        // }
-        CalcSegScan_Kernel CUDA_at_SM(num_blocks, num_thread_for_offset_calc,
-                                      sm_bytes_for_offset_calc)(
-            num_blocks, offset_of_each_block.Ptr(),
-            sum_of_flag_each_block.Ptr(), offset_of_each_block_final.Ptr(),
-            offset_of_each_block.Ptr(), position_of_first_1_in_this_block.Ptr(),
-            false, false, true, false, sum_of_flag_each_block.Ptr(), false);
-        CUDA_ERR("CalcSegScan_Kernel for offset");
         // {
         //     std::vector<dtype> offset_of_each_block_final_cpu;
         //     offset_of_each_block_final.Download(offset_of_each_block_final_cpu);
@@ -407,6 +398,15 @@ void CalcSegScan(int shared_mem_size_bytes, int max_thread,
 }
 
 template void CalcSegScan(int shared_mem_size_bytes, int max_thread,
-                          cCudaArray<int> &x_gpu,
-                          cCudaArray<unsigned int> &seg_begin,
+                          const cCudaArray<int> &x_gpu,
+                          const cCudaArray<unsigned int> &seg_begin,
                           cCudaArray<int> &x_presum_gpu, bool is_inclusive);
+template void CalcSegScan(int shared_mem_size_bytes, int max_thread,
+                          const cCudaArray<float> &x_gpu,
+                          const cCudaArray<unsigned int> &seg_begin,
+                          cCudaArray<float> &x_presum_gpu, bool is_inclusive);
+template void CalcSegScan(int shared_mem_size_bytes, int max_thread,
+                          const cCudaArray<tCudaVector2i> &x_gpu,
+                          const cCudaArray<unsigned int> &seg_begin,
+                          cCudaArray<tCudaVector2i> &x_presum_gpu,
+                          bool is_inclusive);

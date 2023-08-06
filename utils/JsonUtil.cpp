@@ -24,6 +24,8 @@ template Json::Value cJsonUtil::BuildVectorJson<_FLOAT>(
     const Eigen::Matrix<_FLOAT, Eigen::Dynamic, 1> &vec);
 template Json::Value cJsonUtil::BuildVectorJson<int>(
     const Eigen::Matrix<int, Eigen::Dynamic, 1> &vec);
+template Json::Value cJsonUtil::BuildVectorJson<float>(
+    const Eigen::Matrix<float, Eigen::Dynamic, 1> &vec);
 template Json::Value cJsonUtil::BuildVectorJson<unsigned int>(
     const Eigen::Matrix<unsigned int, Eigen::Dynamic, 1> &vec);
 
@@ -269,7 +271,7 @@ bool cJsonUtil::ReadMatrixJson(const Json::Value &root, tMatrixXi &out_mat)
         }
     }
     out_mat.noalias() = tMatrixXi::Zero(mat.size(), num_of_cols);
-    for (int i = 0; i < mat.size(); i++)                                    
+    for (int i = 0; i < mat.size(); i++)
     {
         out_mat.row(i) = mat[i].transpose();
     }
@@ -325,6 +327,9 @@ cJsonUtil::ReadVectorJson(std::string key, const Json::Value &root,
     return ret;
 }
 
+template tVectorXf cJsonUtil::ReadVectorJson<float>(std::string key,
+                                                    const Json::Value &root,
+                                                    int requested_size = -1);
 template tVectorX cJsonUtil::ReadVectorJson<_FLOAT>(std::string key,
                                                     const Json::Value &root,
                                                     int requested_size = -1);

@@ -10,7 +10,7 @@ void CalcPresumGPU(int shared_mem_size_bytes, int max_thread,
 template <typename dtype> void Test(int N)
 {
     int sm_bytes = cCudaUtil::GetSharedMemoryBytes();
-    int max_thread = 32;
+    int max_thread = 1024;
     bool is_inclusive_prefix_sum = false;
     using vec = Eigen::Matrix<dtype, -1, 1>;
     vec x = vec::Random(N);
@@ -35,8 +35,8 @@ template <typename dtype> void Test(int N)
         for (int i = 0; i < N; i++)
             x_presum_cpu[i] = ((i != 0) ? x_presum_cpu[i - 1] : 0) + x[i];
     }
-    std::cout << "x = " << x.transpose() << std::endl;
-    std::cout << "x cpu presum = " << x_presum_cpu.transpose() << std::endl;
+    // std::cout << "x = " << x.transpose() << std::endl;
+    // std::cout << "x cpu presum = " << x_presum_cpu.transpose() << std::endl;
     // 1. upload to GPU
     cCudaArray<dtype> x_gpu;
     cCudaArray<dtype> x_presum_gpu;
@@ -48,22 +48,22 @@ template <typename dtype> void Test(int N)
                          is_inclusive_prefix_sum);
     std::vector<dtype> x_presum_gpu_downloaded;
     x_presum_gpu.Download(x_presum_gpu_downloaded);
-    printf("x gpu presum =");
-    for (auto &x : x_presum_gpu_downloaded)
-    {
+    // printf("x gpu presum =");
+    // for (auto &x : x_presum_gpu_downloaded)
+    // {
 
-        if constexpr (std::is_same_v<dtype, int> ||
-                      std::is_same_v<dtype, unsigned int>)
-            printf("%d ", x);
-        else
-            printf("%.5f ", x);
-    }
-    printf("\n");
+    //     if constexpr (std::is_same_v<dtype, int> ||
+    //                   std::is_same_v<dtype, unsigned int>)
+    //         printf("%d ", x);
+    //     else
+    //         printf("%.5f ", x);
+    // }
+    // printf("\n");
 
     bool test_failed = false;
     for (int i = 0; i < N; i++)
     {
-        if (std::fabs(x_presum_cpu[i] - x_presum_gpu_downloaded[i]) > 1e-3)
+        if (std::fabs(x_presum_cpu[i] - x_presum_gpu_downloaded[i]) > 1e-1)
         {
             test_failed = true;
 
@@ -81,7 +81,7 @@ template <typename dtype> void Test(int N)
         }
     }
     if (test_failed == false)
-        printf("succ\n");
+        printf("test %d succ\n", N);
     else
     {
         printf("failed!\n");
@@ -90,6 +90,6 @@ template <typename dtype> void Test(int N)
 }
 int main()
 {
-    // Test<int>(100);
-    Test<float>(1000);
+    Test<int>(10000000);
+    // Test<int>(100000);
 }

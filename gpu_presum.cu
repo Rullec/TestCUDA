@@ -213,53 +213,29 @@ void CalcPresumGPU(int shared_mem_size_bytes, int max_thread,
         //        num_of_data);
         // exit(1);
 
-        cCudaArray<dtype> block_offset_buf;
+        cCudaArray<dtype> block_offset_buf_final, block_offset_buf_tmp;
         int num_blocks =
             (num_of_data / num_thread) + ((num_of_data % num_thread) != 0);
-        block_offset_buf.Resize(num_blocks);
+        block_offset_buf_final.Resize(num_blocks);
+        block_offset_buf_tmp.Resize(num_blocks);
+
         printf("num of blocks %d, num o f thread %d, total num %d\n",
                num_blocks, num_thread, num_of_data);
         // 1. calculate for each block
         CalcPresumGPUKernel_Blelloch CUDA_at_SM(num_of_data, num_thread,
                                                 sm_bytes)(
             num_of_data, x_gpu.Ptr(), x_presum_gpu.Ptr(),
-            block_offset_buf.Ptr(), true, false, is_inclusive_prefix_sum);
+            block_offset_buf_tmp.Ptr(), true, false, is_inclusive_prefix_sum);
 
         int num_of_thread_for_blocks = calc_num_thread_for_scan_two_power(
             num_blocks, shared_mem_size_bytes, max_thread);
         int sm_bytes_for_blocks = num_of_thread_for_blocks * sizeof(dtype);
 
-        if (num_blocks > num_thread)
-        {
-            printf(
-                "[error] the block offset arr size %d cannot be contained in a "
-                "single block(max num thread %d)\b",
-                num_blocks, num_thread);
-            exit(1);
-        }
+        CalcPresumGPU<dtype>(shared_mem_size_bytes, max_thread, block_offset_buf_tmp, block_offset_buf_final, false);
+        
 
-        cCudaArray<dtype> del;
-        CalcPresumGPUKernel_Blelloch CUDA_at_SM(
-            num_blocks, num_of_thread_for_blocks, sm_bytes_for_blocks)(
-            num_blocks, block_offset_buf.Ptr(), block_offset_buf.Ptr(),
-            del.Ptr(), false, true, false);
-
-        std::vector<dtype> block_offset_buf_cpu;
-        block_offset_buf.Download(block_offset_buf_cpu);
-        printf("block_offset_buf = ");
-        for (auto &x : block_offset_buf_cpu)
-        {
-
-            if constexpr (std::is_same_v<dtype, int> ||
-                          std::is_same_v<dtype, unsigned int>)
-                printf("%d ", x);
-            else
-                printf("%.3f ", x);
-        }
-        printf("\n");
-        CUDA_ERR("CalcPresumGPUKernel_Blelloch");
         ApplyOffsetToBlocks<dtype> CUDA_at(num_of_data, num_thread)(
-            num_of_data, x_presum_gpu.Ptr(), block_offset_buf.Ptr());
+            num_of_data, x_presum_gpu.Ptr(), block_offset_buf_final.Ptr());
         CUDA_ERR("ApplyOffsetToBlocks");
     }
     else

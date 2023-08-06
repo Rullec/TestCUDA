@@ -3,8 +3,8 @@
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
-#include <iostream>
 #include <cstring>
+#include <iostream>
 #include <type_traits>
 // namespace HandyMatrix
 // {
@@ -312,7 +312,7 @@ public:
         return new_mat;
     };
 
-    SIM_CUDA_CALLABLE dtype norm() const
+    SIM_CUDA_CALLABLE float norm() const
     {
         dtype sum = 0;
         for (int i = 0; i < N * M; i++)
